@@ -2,6 +2,15 @@ import "@/styles/globals.css";
 
 import { type Metadata } from "next";
 import { Geist } from "next/font/google";
+import Link from "next/link";
+import {
+  ClerkProvider,
+  SignInButton,
+  SignUpButton,
+  SignedIn,
+  SignedOut,
+  UserButton,
+} from "@clerk/nextjs";
 
 import { TRPCReactProvider } from "@/trpc/react";
 
@@ -20,10 +29,40 @@ export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" className={`${geist.variable}`}>
-      <body>
-        <TRPCReactProvider>{children}</TRPCReactProvider>
-      </body>
-    </html>
+    <ClerkProvider>
+      <html lang="en" className={`${geist.variable}`}>
+        <body>
+          <header className="sticky top-0 z-50 border-b bg-white/70 backdrop-blur supports-backdrop-filter:bg-white/60">
+            <div className="mx-auto w-full max-w-5xl px-4">
+              <div className="flex h-14 items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Link href="/" className="text-base font-semibold tracking-tight">
+                    dumbphone
+                  </Link>
+                </div>
+                <div className="flex items-center gap-2">
+                  <SignedOut>
+                    <SignInButton mode="modal">
+                      <button className="inline-flex items-center gap-1 rounded-md border px-3 py-1.5 text-sm font-medium text-gray-900 shadow-sm transition hover:bg-gray-50 active:translate-y-px">
+                        Sign in
+                      </button>
+                    </SignInButton>
+                    <SignUpButton mode="modal">
+                      <button className="inline-flex items-center gap-1 rounded-md bg-gray-900 px-3 py-1.5 text-sm font-medium text-white shadow-sm transition hover:bg-gray-800 active:translate-y-px">
+                        Sign up
+                      </button>
+                    </SignUpButton>
+                  </SignedOut>
+                  <SignedIn>
+                    <UserButton />
+                  </SignedIn>
+                </div>
+              </div>
+            </div>
+          </header>
+          <TRPCReactProvider>{children}</TRPCReactProvider>
+        </body>
+      </html>
+    </ClerkProvider>
   );
 }
