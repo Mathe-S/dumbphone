@@ -34,4 +34,13 @@ export const suggestionRouter = createTRPCRouter({
         .where(eq(suggestions.drawingId, input.drawingId))
         .orderBy(suggestions.createdAt);
     }),
+
+  clearByDrawingId: publicProcedure
+    .input(z.object({ drawingId: z.number() }))
+    .mutation(async ({ ctx, input }) => {
+      await ctx.db
+        .delete(suggestions)
+        .where(eq(suggestions.drawingId, input.drawingId));
+      return { success: true };
+    }),
 });

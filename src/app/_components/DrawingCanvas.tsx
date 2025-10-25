@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { api } from "@/trpc/react";
 import { QRCodeModal } from "./QRCodeModal";
+import { toast } from "sonner";
 
 interface Point {
   x: number;
@@ -58,15 +59,19 @@ export function DrawingCanvas({
   const [qrCodeUrl, setQRCodeUrl] = useState<string | null>(null);
   const [suggestion, setSuggestion] = useState("");
   const [drawingId] = useState(1); // TODO: Get from database
+  const [selectedSuggestions, setSelectedSuggestions] = useState<Set<number>>(
+    new Set(),
+  );
 
   const generateCaption = api.caption.generateFromBase64.useMutation({
     onSuccess: (data) => {
       setCaption(data.caption);
       setShowResults(true);
+      toast.success("Caption generated successfully!");
     },
     onError: (error) => {
       console.error("Caption generation failed:", error);
-      alert("Failed to generate caption. Please try again.");
+      toast.error("Failed to generate caption. Please try again.");
     },
   });
 
@@ -74,28 +79,34 @@ export function DrawingCanvas({
     onSuccess: (data) => {
       console.log("Image generated successfully:", data.imageUrl);
       setGeneratedImageUrl(data.imageUrl);
+      toast.success("Image generated successfully!");
     },
     onError: (error) => {
       console.error("Image generation failed:", error);
-      alert("Failed to generate image. Please try again.");
+      toast.error("Failed to generate image. Please try again.");
     },
   });
 
   const createSuggestion = api.suggestion.create.useMutation({
     onSuccess: () => {
       setSuggestion("");
-      alert("Suggestion sent! The owner will see it when they generate.");
+      toast.success("Suggestion sent! The owner will see it.");
     },
     onError: (error) => {
       console.error("Suggestion failed:", error);
-      alert("Failed to send suggestion. Please try again.");
+      toast.error("Failed to send suggestion. Please try again.");
     },
   });
 
   const { data: suggestions = [] } = api.suggestion.getByDrawingId.useQuery(
     { drawingId },
-    { enabled: isOwner && showResults },
+    {
+      enabled: isOwner,
+      refetchInterval: 3000, // Poll every 3 seconds for real-time updates
+    },
   );
+
+  const clearSuggestions = api.suggestion.clearByDrawingId.useMutation();
 
   const colors = [
     "#000000",
@@ -299,7 +310,37 @@ export function DrawingCanvas({
 
   const handleGenerateImage = () => {
     if (!caption) return;
-    generateImage.mutate({ caption });
+    
+    // Include only selected suggestions in the prompt
+    let enhancedCaption = caption;
+    if (selectedSuggestions.size > 0) {
+      const selectedTexts = suggestions
+        .filter((s) => selectedSuggestions.has(s.id))
+        .map((s) => s.suggestion)
+        .join(", ");
+      enhancedCaption = `${caption}. Incorporate these creative ideas: ${selectedTexts}`;
+    }
+    
+    // Generate image with enhanced caption
+    generateImage.mutate({ caption: enhancedCaption });
+    
+    // Clear suggestions and selections after starting generation
+    if (suggestions.length > 0) {
+      clearSuggestions.mutate({ drawingId });
+      setSelectedSuggestions(new Set());
+    }
+  };
+
+  const toggleSuggestion = (id: number) => {
+    setSelectedSuggestions((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(id)) {
+        newSet.delete(id);
+      } else {
+        newSet.add(id);
+      }
+      return newSet;
+    });
   };
 
   const handleCloseResults = () => {
@@ -553,28 +594,6 @@ export function DrawingCanvas({
                 </div>
               </div>
 
-              {/* Visitor Suggestions (Owner Only) */}
-              {isOwner && suggestions.length > 0 && (
-                <div className="mb-6 rounded-xl border border-blue-400/20 bg-blue-900/40 p-6">
-                  <h3 className="mb-3 text-lg font-semibold text-white">
-                    Visitor Suggestions ({suggestions.length})
-                  </h3>
-                  <div className="max-h-40 space-y-2 overflow-y-auto">
-                    {suggestions.map((s) => (
-                      <div
-                        key={s.id}
-                        className="rounded-lg border border-blue-400/10 bg-blue-800/30 p-3"
-                      >
-                        <p className="text-sm text-blue-100">{s.suggestion}</p>
-                        <p className="mt-1 text-xs text-blue-400">
-                          {new Date(s.createdAt).toLocaleString()}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
               {/* Content Grid */}
               <div className="grid gap-6 lg:grid-cols-2">
                 {/* Caption Section */}
@@ -598,6 +617,37 @@ export function DrawingCanvas({
                           ? "Generating Image..."
                           : "Generate Image from Caption"}
                       </button>
+
+                      {/* Visitor Suggestions (Owner Only) - Real-time updates */}
+                      {isOwner && suggestions.length > 0 && (
+                        <div className="mt-4 rounded-lg border border-cyan-400/20 bg-cyan-900/20 p-4">
+                          <h4 className="mb-2 flex items-center gap-2 text-sm font-semibold text-cyan-300">
+                            <Sparkles className="h-4 w-4" />
+                            Visitor Suggestions ({selectedSuggestions.size}/{suggestions.length} selected)
+                          </h4>
+                          <div className="max-h-32 space-y-2 overflow-y-auto">
+                            {suggestions.map((s) => (
+                              <label
+                                key={s.id}
+                                className="flex cursor-pointer items-start gap-2 rounded border border-cyan-400/10 bg-cyan-800/20 p-2 transition hover:bg-cyan-800/30"
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={selectedSuggestions.has(s.id)}
+                                  onChange={() => toggleSuggestion(s.id)}
+                                  className="mt-0.5 h-4 w-4 cursor-pointer rounded border-cyan-400/30 bg-cyan-900/50 text-cyan-500 focus:ring-2 focus:ring-cyan-500 focus:ring-offset-0"
+                                />
+                                <p className="flex-1 text-xs text-cyan-100">{s.suggestion}</p>
+                              </label>
+                            ))}
+                          </div>
+                          <p className="mt-2 text-xs text-cyan-400/70">
+                            {selectedSuggestions.size > 0
+                              ? `Selected suggestions will be included in the next generation`
+                              : "Select suggestions to include in the generation"}
+                          </p>
+                        </div>
+                      )}
                     </>
                   ) : (
                     <div className="flex items-center justify-center py-8">

@@ -14,6 +14,7 @@ import {
 import { Pencil } from "lucide-react";
 
 import { TRPCReactProvider } from "@/trpc/react";
+import { Toaster } from "@/components/ui/sonner";
 
 export const metadata: Metadata = {
   title: "dumbphone - you are not invited",
@@ -38,7 +39,7 @@ export default function RootLayout({
               <div className="flex h-16 items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Link href="/" className="flex items-center gap-2">
-                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-blue-500 to-cyan-500">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-linear-to-br from-blue-500 to-cyan-500">
                       <span className="text-lg font-bold text-white">📱</span>
                     </div>
                     <span className="text-lg font-bold text-white">
@@ -61,7 +62,7 @@ export default function RootLayout({
                       </button>
                     </SignInButton>
                     <SignUpButton mode="modal">
-                      <button className="inline-flex items-center gap-1 rounded-lg bg-gradient-to-r from-blue-500 to-cyan-500 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:from-blue-600 hover:to-cyan-600 active:translate-y-px">
+                      <button className="inline-flex items-center gap-1 rounded-lg bg-linear-to-r from-blue-500 to-cyan-500 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:from-blue-600 hover:to-cyan-600 active:translate-y-px">
                         Sign up
                       </button>
                     </SignUpButton>
@@ -74,6 +75,7 @@ export default function RootLayout({
             </div>
           </header>
           <TRPCReactProvider>{children}</TRPCReactProvider>
+          <Toaster />
         </body>
       </html>
     </ClerkProvider>
