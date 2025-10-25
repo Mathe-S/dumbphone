@@ -18,7 +18,7 @@ export const captionRouter = createTRPCRouter({
       try {
         // Handle different image input formats
         let imageInput = input.imageBase64;
-        
+
         // If it's not a URL or data URI, convert to data URI
         if (!imageInput.startsWith("http") && !imageInput.startsWith("data:")) {
           imageInput = `data:image/png;base64,${imageInput}`;
@@ -73,25 +73,25 @@ export const captionRouter = createTRPCRouter({
 
         // Handle different response formats
         console.log("Seedream output:", output, "Type:", typeof output);
-        
+
         let imageUrl = "";
-        
+
         if (Array.isArray(output) && output.length > 0) {
           const first = output[0];
           console.log("First item type:", typeof first);
-          
-          if (typeof first === 'string') {
+
+          if (typeof first === "string") {
             imageUrl = first;
-          } else if (first && typeof first === 'object') {
+          } else if (first && typeof first === "object") {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const obj = first as any;
-            if (typeof obj.url === 'function') {
+            if (typeof obj.url === "function") {
               // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-assignment
               imageUrl = obj.url();
-            } else if (typeof obj.url === 'string') {
+            } else if (typeof obj.url === "string") {
               // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
               imageUrl = obj.url;
-            } else if (typeof obj.imageUrl === 'string') {
+            } else if (typeof obj.imageUrl === "string") {
               // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
               imageUrl = obj.imageUrl;
             } else {
@@ -100,14 +100,14 @@ export const captionRouter = createTRPCRouter({
           } else {
             imageUrl = String(first);
           }
-        } else if (typeof output === 'string') {
+        } else if (typeof output === "string") {
           imageUrl = output;
         } else {
           throw new Error("No image returned from Seedream");
         }
 
         console.log("Final imageUrl:", imageUrl);
-        
+
         if (!imageUrl) {
           throw new Error("Empty image URL returned from Seedream");
         }
@@ -119,6 +119,85 @@ export const captionRouter = createTRPCRouter({
         console.error("Image generation error:", error);
         throw new Error(
           `Failed to generate image: ${error instanceof Error ? error.message : "Unknown error"}`,
+        );
+      }
+    }),
+
+  generateVideoFromImages: publicProcedure
+    .input(
+      z.object({
+        currentImage: z.string(),
+        referenceImages: z.array(z.string()).max(4),
+      }),
+    )
+    .mutation(async ({ input }) => {
+      try {
+        const output = await replicate.run("bytedance/seedance-1-lite", {
+          input: {
+            fps: 24,
+            image: input.currentImage,
+            prompt:
+              "Make a funny video, showing the evolution of the images from reference images",
+            duration: 3,
+            resolution: "480p",
+            aspect_ratio: "4:3",
+            camera_fixed: false,
+            reference_images: input.referenceImages,
+          },
+        });
+
+        // Handle different response formats (similar to image generation)
+        console.log("Seedance output:", output, "Type:", typeof output);
+
+        let videoUrl = "";
+
+        if (typeof output === "string") {
+          videoUrl = output;
+        } else if (Array.isArray(output) && output.length > 0) {
+          const first = output[0];
+          console.log("First item type:", typeof first);
+
+          if (typeof first === "string") {
+            videoUrl = first;
+          } else if (first && typeof first === "object") {
+            const obj = first as { url?: string | (() => string) };
+            if (typeof obj.url === "function") {
+              videoUrl = obj.url();
+            } else if (typeof obj.url === "string") {
+              videoUrl = obj.url;
+            } else {
+              videoUrl = String(first);
+            }
+          } else {
+            videoUrl = String(first);
+          }
+        } else if (output && typeof output === "object") {
+          // Handle single object response
+          const obj = output as { url?: string | (() => string) };
+          if (typeof obj.url === "function") {
+            videoUrl = obj.url();
+          } else if (typeof obj.url === "string") {
+            videoUrl = obj.url;
+          } else {
+            throw new Error("No video URL found in response");
+          }
+        } else {
+          throw new Error("No video returned from Seedance");
+        }
+
+        console.log("Final videoUrl:", videoUrl);
+
+        if (!videoUrl) {
+          throw new Error("Empty video URL returned from Seedance");
+        }
+
+        return {
+          videoUrl,
+        };
+      } catch (error) {
+        console.error("Video generation error:", error);
+        throw new Error(
+          `Failed to generate video: ${error instanceof Error ? error.message : "Unknown error"}`,
         );
       }
     }),

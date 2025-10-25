@@ -16,6 +16,7 @@ import {
   Send,
   ChevronLeft,
   ChevronRight,
+  Video,
 } from "lucide-react";
 import { api } from "@/trpc/react";
 import { QRCodeModal } from "./QRCodeModal";
@@ -82,6 +83,10 @@ export function DrawingCanvas({
     new Set(),
   );
   const capturedSuggestionsRef = useRef<string[]>([]);
+  const [generatedVideoUrl, setGeneratedVideoUrl] = useState<string | null>(
+    null,
+  );
+  const [showVideo, setShowVideo] = useState(false);
 
   const generateCaption = api.caption.generateFromBase64.useMutation({
     onSuccess: (data) => {
@@ -151,6 +156,19 @@ export function DrawingCanvas({
     onError: (error) => {
       console.error("Suggestion failed:", error);
       toast.error("Failed to send suggestion. Please try again.");
+    },
+  });
+
+  const generateVideo = api.caption.generateVideoFromImages.useMutation({
+    onSuccess: (data) => {
+      console.log("Video generated successfully:", data.videoUrl);
+      setGeneratedVideoUrl(data.videoUrl);
+      setShowVideo(true);
+      toast.success("Video generated successfully!");
+    },
+    onError: (error) => {
+      console.error("Video generation failed:", error);
+      toast.error("Failed to generate video. Please try again.");
     },
   });
 
@@ -525,6 +543,58 @@ export function DrawingCanvas({
     generateCaption.mutate({ imageBase64: generatedImageUrl });
   };
 
+  const handleGenerateVideo = async () => {
+    if (imageHistory.length === 0) {
+      toast.error("No images to generate video from");
+      return;
+    }
+
+    // Get reference images: first and last 2 images
+    const referenceImages: string[] = [];
+    
+    // Add first image
+    if (imageHistory[0]) {
+      referenceImages.push(imageHistory[0].url);
+    }
+    
+    // Add second image if available
+    if (imageHistory.length > 1 && imageHistory[1]) {
+      referenceImages.push(imageHistory[1].url);
+    }
+    
+    // Add second-to-last image if available and different from already added
+    const secondToLast = imageHistory[imageHistory.length - 2];
+    if (imageHistory.length > 2 && secondToLast) {
+      referenceImages.push(secondToLast.url);
+    }
+    
+    // Add last image if different from first
+    const lastImage = imageHistory[imageHistory.length - 1];
+    if (imageHistory.length > 1 && lastImage) {
+      referenceImages.push(lastImage.url);
+    }
+
+    // Limit to 4 images
+    const finalReferenceImages = referenceImages.slice(0, 4);
+
+    // Use the current image (most recent in history)
+    const currentImage = imageHistory[imageHistory.length - 1]?.url ?? imageHistory[0]!.url;
+
+    // Convert data URLs to public URLs if needed
+    const processedReferenceImages = await Promise.all(
+      finalReferenceImages.map(async (url) => {
+        // If it's a data URL, we need to upload it or use it as-is
+        // Replicate might handle data URLs, so we'll try using them directly
+        return url;
+      })
+    );
+
+    generateVideo.mutate({
+      currentImage,
+      referenceImages: processedReferenceImages,
+    });
+  };
+
   return (
     <div className="flex h-full flex-col">
       {/* Toolbar */}
@@ -673,6 +743,17 @@ export function DrawingCanvas({
           >
             <ImageIcon className="h-4 w-4" />
             {generateImage.isPending ? "Creating..." : "Generate Image"}
+          </button>
+
+          {/* Generate Video */}
+          <button
+            onClick={handleGenerateVideo}
+            disabled={generateVideo.isPending || imageHistory.length === 0 || !isOwner}
+            className="flex items-center gap-2 rounded-lg border border-green-400/50 bg-gradient-to-r from-green-500 to-emerald-500 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:from-green-600 hover:to-emerald-600 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:from-green-500 disabled:hover:to-emerald-500"
+            title="Finish Game & Generate Video"
+          >
+            <Video className="h-4 w-4" />
+            {generateVideo.isPending ? "Generating..." : "Finish & Make Video"}
           </button>
         </div>
 
@@ -1040,9 +1121,9 @@ export function DrawingCanvas({
                     Previous Iterations ({chainHistory.length})
                   </h3>
                   <div className="space-y-3">
-                    {chainHistory.map((item) => (
+                    {chainHistory.map((item, index) => (
                       <div
-                        key={item.iteration}
+                        key={`${item.iteration}-${index}`}
                         className="rounded-lg border border-blue-400/10 bg-blue-950/30 p-4"
                       >
                         <div className="mb-2 flex items-center gap-2">
@@ -1089,6 +1170,60 @@ export function DrawingCanvas({
         {/* QR Code Modal */}
         {showQR && qrCodeUrl && (
           <QRCodeModal url={qrCodeUrl} onClose={() => setShowQR(false)} />
+        )}
+
+        {/* Video Modal */}
+        {showVideo && generatedVideoUrl && (
+          <div className="absolute inset-0 z-20 flex items-center justify-center bg-blue-950/90 p-4 backdrop-blur-sm">
+            <div className="relative w-full max-w-4xl rounded-2xl border border-green-400/30 bg-gradient-to-br from-green-950 via-green-900 to-green-800 p-8 shadow-2xl">
+              {/* Close Button */}
+              <button
+                onClick={() => setShowVideo(false)}
+                className="absolute top-4 right-4 rounded-lg p-2 text-green-300 transition hover:bg-green-800/50 hover:text-white"
+                title="Close"
+              >
+                <X className="h-5 w-5" />
+              </button>
+
+              <div className="mb-4 flex items-center gap-2">
+                <Video className="h-6 w-6 text-green-400" />
+                <h2 className="text-2xl font-bold text-white">
+                  Your Dumb Video is Ready! 🎉
+                </h2>
+              </div>
+
+              <div className="space-y-4">
+                <div className="overflow-hidden rounded-lg border border-green-400/20">
+                  <video
+                    src={generatedVideoUrl}
+                    controls
+                    autoPlay
+                    loop
+                    className="w-full"
+                  >
+                    Your browser does not support the video tag.
+                  </video>
+                </div>
+
+                <div className="flex gap-3">
+                  <a
+                    href={generatedVideoUrl}
+                    download="dumb-video.mp4"
+                    className="flex flex-1 items-center justify-center gap-2 rounded-lg border border-green-400/50 bg-green-800/50 px-4 py-3 text-sm font-medium text-green-100 transition hover:bg-green-700/50"
+                  >
+                    <Download className="h-4 w-4" />
+                    Download Video
+                  </a>
+                  <button
+                    onClick={() => setShowVideo(false)}
+                    className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-green-500 to-emerald-500 px-4 py-3 text-sm font-medium text-white transition hover:from-green-600 hover:to-emerald-600"
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
         )}
       </div>
     </div>
