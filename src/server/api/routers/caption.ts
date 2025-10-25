@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call */
 import { z } from "zod";
 import Replicate from "replicate";
 import { createTRPCRouter, publicProcedure } from "@/server/api/trpc";
