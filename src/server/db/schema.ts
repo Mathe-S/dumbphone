@@ -25,3 +25,35 @@ export const posts = createTable(
   }),
   (t) => [index("name_idx").on(t.name)],
 );
+
+export const drawings = createTable(
+  "drawing",
+  (d) => ({
+    id: d.integer().primaryKey().generatedByDefaultAsIdentity(),
+    userId: d.varchar({ length: 256 }).notNull(),
+    imageData: d.text(),
+    caption: d.text(),
+    generatedImageUrl: d.text(),
+    createdAt: d
+      .timestamp({ withTimezone: true })
+      .default(sql`CURRENT_TIMESTAMP`)
+      .notNull(),
+    updatedAt: d.timestamp({ withTimezone: true }).$onUpdate(() => new Date()),
+  }),
+  (t) => [index("user_idx").on(t.userId)],
+);
+
+export const suggestions = createTable(
+  "suggestion",
+  (d) => ({
+    id: d.integer().primaryKey().generatedByDefaultAsIdentity(),
+    drawingId: d.integer().notNull(),
+    visitorId: d.varchar({ length: 256 }),
+    suggestion: d.text().notNull(),
+    createdAt: d
+      .timestamp({ withTimezone: true })
+      .default(sql`CURRENT_TIMESTAMP`)
+      .notNull(),
+  }),
+  (t) => [index("drawing_idx").on(t.drawingId)],
+);

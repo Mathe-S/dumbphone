@@ -15,17 +15,20 @@ export const captionRouter = createTRPCRouter({
     )
     .mutation(async ({ input }) => {
       try {
-        // Convert base64 to data URI if not already
-        const dataUri = input.imageBase64.startsWith("data:")
-          ? input.imageBase64
-          : `data:image/png;base64,${input.imageBase64}`;
+        // Handle different image input formats
+        let imageInput = input.imageBase64;
+        
+        // If it's not a URL or data URI, convert to data URI
+        if (!imageInput.startsWith("http") && !imageInput.startsWith("data:")) {
+          imageInput = `data:image/png;base64,${imageInput}`;
+        }
 
         const output = await replicate.run(
           "salesforce/blip:2e1dddc8621f72155f24cf2e0adbde548458d3cab9f00c0139eea840d0ac4746",
           {
             input: {
               task: "image_captioning",
-              image: dataUri,
+              image: imageInput,
             },
           },
         );
@@ -65,12 +68,47 @@ export const captionRouter = createTRPCRouter({
             enhance_prompt: true,
             sequential_image_generation: "disabled",
           },
-        })) as Array<{ url: () => string }>;
+        })) as Array<{ url: () => string }> | string[];
 
-        const imageUrl = output[0]?.url();
+        // Handle different response formats
+        console.log("Seedream output:", output, "Type:", typeof output);
+        
+        let imageUrl = "";
+        
+        if (Array.isArray(output) && output.length > 0) {
+          const first = output[0];
+          console.log("First item type:", typeof first);
+          
+          if (typeof first === 'string') {
+            imageUrl = first;
+          } else if (first && typeof first === 'object') {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const obj = first as any;
+            if (typeof obj.url === 'function') {
+              // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-assignment
+              imageUrl = obj.url();
+            } else if (typeof obj.url === 'string') {
+              // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+              imageUrl = obj.url;
+            } else if (typeof obj.imageUrl === 'string') {
+              // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+              imageUrl = obj.imageUrl;
+            } else {
+              imageUrl = JSON.stringify(obj);
+            }
+          } else {
+            imageUrl = String(first);
+          }
+        } else if (typeof output === 'string') {
+          imageUrl = output;
+        } else {
+          throw new Error("No image returned from Seedream");
+        }
 
+        console.log("Final imageUrl:", imageUrl);
+        
         if (!imageUrl) {
-          throw new Error("No image URL returned from Seedream");
+          throw new Error("Empty image URL returned from Seedream");
         }
 
         return {

@@ -12,8 +12,14 @@ import {
   Sparkles,
   Image as ImageIcon,
   X,
+  QrCode,
+  Send,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { api } from "@/trpc/react";
+import { QRCodeModal } from "./QRCodeModal";
+import { toast } from "sonner";
 
 interface Point {
   x: number;
@@ -26,13 +32,23 @@ interface DrawingPath {
   width: number;
 }
 
-export function DrawingCanvas() {
+interface DrawingCanvasProps {
+  pageUserId: string;
+  currentUserId: string | null;
+  isOwner: boolean;
+}
+
+export function DrawingCanvas({
+  pageUserId: _pageUserId,
+  currentUserId,
+  isOwner,
+}: DrawingCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [currentPath, setCurrentPath] = useState<Point[]>([]);
   const [paths, setPaths] = useState<DrawingPath[]>([]);
   const [redoStack, setRedoStack] = useState<DrawingPath[]>([]);
-  const [brushColor, setBrushColor] = useState("#000000");
+  const [brushColor, setBrushColor] = useState("#0000FF");
   const [brushWidth, setBrushWidth] = useState(3);
   const [isEraser, setIsEraser] = useState(false);
   const [showColorPicker, setShowColorPicker] = useState(false);
@@ -41,6 +57,17 @@ export function DrawingCanvas() {
     null,
   );
   const [showResults, setShowResults] = useState(false);
+  const [showQR, setShowQR] = useState(false);
+  const [qrCodeUrl, setQRCodeUrl] = useState<string | null>(null);
+  const [suggestion, setSuggestion] = useState("");
+  const [drawingId] = useState(1); // TODO: Get from database
+  const [selectedSuggestions, setSelectedSuggestions] = useState<Set<number>>(
+    new Set(),
+  );
+  const [imageHistory, setImageHistory] = useState<
+    Array<{ url: string; caption: string; isOriginal?: boolean }>
+  >([]);
+  const [currentHistoryIndex, setCurrentHistoryIndex] = useState(0);
   const [chainHistory, setChainHistory] = useState<
     Array<{ iteration: number; caption: string; imageUrl: string }>
   >([]);
@@ -49,39 +76,76 @@ export function DrawingCanvas() {
 
   const generateCaption = api.caption.generateFromBase64.useMutation({
     onSuccess: (data) => {
+      console.log(`Caption generated for iteration ${currentIteration}:`, data.caption);
       setCaption(data.caption);
       setShowResults(true);
       setWaitingForUser(true);
+      toast.success("Caption generated successfully!");
     },
     onError: (error) => {
       console.error("Caption generation failed:", error);
-      alert("Failed to generate caption. Please try again.");
+      toast.error("Failed to generate caption. Please try again.");
     },
   });
 
   const generateImage = api.caption.generateImageFromCaption.useMutation({
     onSuccess: (data) => {
       console.log("Image generated successfully:", data.imageUrl);
-      setGeneratedImageUrl(data.imageUrl);
+      
+      // Ensure we have a string URL
+      const imageUrl = typeof data.imageUrl === 'string' 
+        ? data.imageUrl 
+        : String(data.imageUrl);
+      
+      setGeneratedImageUrl(imageUrl);
       setWaitingForUser(true);
       
-      // Add to history
+      // Add to both histories
+      setImageHistory((prev) => [
+        ...prev,
+        { url: imageUrl, caption: caption ?? "" },
+      ]);
+      setCurrentHistoryIndex((prev) => prev + 1);
+      
       if (caption) {
         setChainHistory((prev) => [
           ...prev,
           {
             iteration: currentIteration,
             caption: caption,
-            imageUrl: data.imageUrl,
+            imageUrl: imageUrl,
           },
         ]);
       }
+      
+      toast.success("Image generated successfully!");
     },
     onError: (error) => {
       console.error("Image generation failed:", error);
-      alert("Failed to generate image. Please try again.");
+      toast.error("Failed to generate image. Please try again.");
     },
   });
+
+  const createSuggestion = api.suggestion.create.useMutation({
+    onSuccess: () => {
+      setSuggestion("");
+      toast.success("Suggestion sent! The owner will see it.");
+    },
+    onError: (error) => {
+      console.error("Suggestion failed:", error);
+      toast.error("Failed to send suggestion. Please try again.");
+    },
+  });
+
+  const { data: suggestions = [] } = api.suggestion.getByDrawingId.useQuery(
+    { drawingId },
+    {
+      enabled: isOwner && showResults && !!caption,
+      refetchInterval: 3000, // Poll every 3 seconds for real-time updates
+    },
+  );
+
+  const clearSuggestions = api.suggestion.clearByDrawingId.useMutation();
 
   const colors = [
     "#000000",
@@ -274,6 +338,12 @@ export function DrawingCanvas() {
     // Get canvas data as base64
     const dataUrl = canvas.toDataURL("image/png");
 
+    // Add original drawing to history if this is the first generation
+    if (imageHistory.length === 0) {
+      setImageHistory([{ url: dataUrl, caption: "Original Drawing", isOriginal: true }]);
+      setCurrentHistoryIndex(0);
+    }
+    
     // Show results panel and increment iteration
     if (!showResults) {
       setShowResults(true);
@@ -287,9 +357,40 @@ export function DrawingCanvas() {
   const handleGenerateImageFromCaption = () => {
     if (!caption) return;
     setWaitingForUser(false);
+    
+    // Include only selected suggestions in the prompt
+    let enhancedCaption = caption;
+    if (selectedSuggestions.size > 0) {
+      const selectedTexts = suggestions
+        .filter((s) => selectedSuggestions.has(s.id))
+        .map((s) => s.suggestion)
+        .join(", ");
+      enhancedCaption = `${caption}. Incorporate these creative ideas: ${selectedTexts}`;
+    }
+    
     // Append "make it extremely dumber" to every prompt
-    const modifiedCaption = `${caption}, make it extremely dumber`;
+    const modifiedCaption = `${enhancedCaption}, make it extremely dumber and blue`;
+    
+    // Generate image with enhanced caption
     generateImage.mutate({ caption: modifiedCaption });
+    
+    // Clear suggestions and selections after starting generation
+    if (suggestions.length > 0) {
+      clearSuggestions.mutate({ drawingId });
+      setSelectedSuggestions(new Set());
+    }
+  };
+
+  const toggleSuggestion = (id: number) => {
+    setSelectedSuggestions((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(id)) {
+        newSet.delete(id);
+      } else {
+        newSet.add(id);
+      }
+      return newSet;
+    });
   };
 
   const handleGenerateCaptionFromImage = async () => {
@@ -360,6 +461,39 @@ export function DrawingCanvas() {
     setWaitingForUser(false);
   };
 
+  const handleSubmitSuggestion = () => {
+    if (!suggestion.trim()) return;
+    createSuggestion.mutate({
+      drawingId,
+      visitorId: currentUserId ?? undefined,
+      suggestion: suggestion.trim(),
+    });
+  };
+
+  const handleShowQR = () => {
+    if (typeof window !== "undefined") {
+      const url = window.location.href;
+      setQRCodeUrl(url);
+      setShowQR(true);
+    }
+  };
+
+  const navigateHistory = (direction: "prev" | "next") => {
+    if (direction === "prev" && currentHistoryIndex > 0) {
+      setCurrentHistoryIndex(currentHistoryIndex - 1);
+    } else if (direction === "next" && currentHistoryIndex < imageHistory.length - 1) {
+      setCurrentHistoryIndex(currentHistoryIndex + 1);
+    }
+  };
+
+  const handleRegenerateCaption = () => {
+    if (!generatedImageUrl) return;
+    
+    // Clear current caption and generate new one from the image
+    setCaption(null);
+    generateCaption.mutate({ imageBase64: generatedImageUrl });
+  };
+
   return (
     <div className="flex h-full flex-col">
       {/* Toolbar */}
@@ -405,7 +539,7 @@ export function DrawingCanvas() {
           </button>
 
           {showColorPicker && (
-            <div className="absolute left-0 top-full z-10 mt-1 grid grid-cols-5 gap-2 rounded-lg border bg-white p-3 shadow-lg">
+            <div className="absolute top-full left-0 z-10 mt-1 grid grid-cols-5 gap-2 rounded-lg border bg-white p-3 shadow-lg">
               {colors.map((color) => (
                 <button
                   key={color}
@@ -474,12 +608,24 @@ export function DrawingCanvas() {
           </button>
         </div>
 
+        {/* QR Code Button (Owner Only) */}
+        {isOwner && (
+          <button
+            onClick={handleShowQR}
+            className="ml-auto flex items-center gap-2 rounded-lg border border-blue-400/50 bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-blue-700"
+            title="Show QR Code"
+          >
+            <QrCode className="h-4 w-4" />
+            Share
+          </button>
+        )}
+
         {/* AI Tools */}
-        <div className="ml-auto flex items-center gap-2">
+        <div className="flex items-center gap-2">
           {/* Generate Caption */}
           <button
             onClick={handleGenerateCaptionFromDrawing}
-            disabled={generateCaption.isPending || paths.length === 0}
+            disabled={generateCaption.isPending || paths.length === 0 || !isOwner}
             className="flex items-center gap-2 rounded-lg border border-purple-400/50 bg-gradient-to-r from-purple-500 to-pink-500 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:from-purple-600 hover:to-pink-600 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:from-purple-500 disabled:hover:to-pink-500"
             title="Generate Caption from Drawing"
           >
@@ -490,7 +636,7 @@ export function DrawingCanvas() {
           {/* Generate Image */}
           <button
             onClick={handleGenerateImageFromCaption}
-            disabled={generateImage.isPending || !caption}
+            disabled={generateImage.isPending || !caption || !isOwner}
             className="flex items-center gap-2 rounded-lg border border-blue-400/50 bg-gradient-to-r from-blue-500 to-cyan-500 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:from-blue-600 hover:to-cyan-600 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:from-blue-500 disabled:hover:to-cyan-500"
             title="Generate Image from Caption"
           >
@@ -520,6 +666,99 @@ export function DrawingCanvas() {
         </div>
       </div>
 
+      {/* Visitor Suggestion Input */}
+      {!isOwner && (
+        <div className="border-b bg-blue-50 px-4 py-3">
+          <div className="mx-auto max-w-4xl">
+            <label className="mb-2 block text-sm font-medium text-blue-900">
+              Suggest an idea for the next image:
+            </label>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={suggestion}
+                onChange={(e) => setSuggestion(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleSubmitSuggestion()}
+                placeholder="Type your creative suggestion here..."
+                maxLength={500}
+                className="flex-1 rounded-lg border border-blue-300 px-4 py-2 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 focus:outline-none"
+              />
+              <button
+                onClick={handleSubmitSuggestion}
+                disabled={!suggestion.trim() || createSuggestion.isPending}
+                className="flex items-center gap-2 rounded-lg bg-linear-to-r from-blue-500 to-cyan-500 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:from-blue-600 hover:to-cyan-600 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <Send className="h-4 w-4" />
+                {createSuggestion.isPending ? "Sending..." : "Send"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Image History Carousel */}
+      {imageHistory.length > 0 && (
+        <div className="border-b bg-linear-to-r from-blue-50 to-cyan-50 px-4 py-3">
+          <div className="mx-auto flex max-w-4xl items-center gap-3">
+            <button
+              onClick={() => navigateHistory("prev")}
+              disabled={currentHistoryIndex === 0}
+              className="rounded-lg bg-white p-2 shadow-sm transition hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-40"
+              title="Previous"
+            >
+              <ChevronLeft className="h-5 w-5 text-blue-600" />
+            </button>
+
+            <div className="flex flex-1 items-center gap-3 overflow-x-auto">
+              {imageHistory.map((item, index) => (
+                <button
+                  key={index}
+                  onClick={() => setCurrentHistoryIndex(index)}
+                  className={`group relative shrink-0 transition ${
+                    index === currentHistoryIndex
+                      ? "ring-2 ring-blue-500 ring-offset-2"
+                      : "opacity-60 hover:opacity-100"
+                  }`}
+                  title={item.caption}
+                >
+                  <div className="relative h-16 w-16 overflow-hidden rounded-lg border-2 border-white bg-white shadow-md">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={item.url}
+                      alt={item.caption}
+                      className="h-full w-full object-cover"
+                    />
+                    {item.isOriginal && (
+                      <div className="absolute inset-0 flex items-center justify-center bg-blue-900/20">
+                        <span className="text-xs font-bold text-white drop-shadow">
+                          ✏️
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-blue-500 text-xs font-bold text-white shadow">
+                    {index + 1}
+                  </div>
+                </button>
+              ))}
+            </div>
+
+            <button
+              onClick={() => navigateHistory("next")}
+              disabled={currentHistoryIndex === imageHistory.length - 1}
+              className="rounded-lg bg-white p-2 shadow-sm transition hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-40"
+              title="Next"
+            >
+              <ChevronRight className="h-5 w-5 text-blue-600" />
+            </button>
+
+            <div className="text-sm font-medium text-blue-900">
+              {currentHistoryIndex + 1} / {imageHistory.length}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Canvas */}
       <div className="relative flex-1 overflow-hidden bg-gray-100">
         <canvas
@@ -542,7 +781,7 @@ export function DrawingCanvas() {
               {/* Close Button */}
               <button
                 onClick={handleCloseResults}
-                className="absolute right-4 top-4 rounded-lg p-2 text-blue-300 transition hover:bg-blue-800/50 hover:text-white"
+                className="absolute top-4 right-4 rounded-lg p-2 text-blue-300 transition hover:bg-blue-800/50 hover:text-white"
                 title="Close"
               >
                 <X className="h-5 w-5" />
@@ -581,6 +820,37 @@ export function DrawingCanvas() {
                           ? "Generating Image..."
                           : "Generate Image from Caption"}
                       </button>
+
+                      {/* Visitor Suggestions (Owner Only) - Real-time updates */}
+                      {isOwner && suggestions.length > 0 && (
+                        <div className="mt-4 rounded-lg border border-cyan-400/20 bg-cyan-900/20 p-4">
+                          <h4 className="mb-2 flex items-center gap-2 text-sm font-semibold text-cyan-300">
+                            <Sparkles className="h-4 w-4" />
+                            Visitor Suggestions ({selectedSuggestions.size}/{suggestions.length} selected)
+                          </h4>
+                          <div className="max-h-32 space-y-2 overflow-y-auto">
+                            {suggestions.map((s) => (
+                              <label
+                                key={s.id}
+                                className="flex cursor-pointer items-start gap-2 rounded border border-cyan-400/10 bg-cyan-800/20 p-2 transition hover:bg-cyan-800/30"
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={selectedSuggestions.has(s.id)}
+                                  onChange={() => toggleSuggestion(s.id)}
+                                  className="mt-0.5 h-4 w-4 cursor-pointer rounded border-cyan-400/30 bg-cyan-900/50 text-cyan-500 focus:ring-2 focus:ring-cyan-500 focus:ring-offset-0"
+                                />
+                                <p className="flex-1 text-xs text-cyan-100">{s.suggestion}</p>
+                              </label>
+                            ))}
+                          </div>
+                          <p className="mt-2 text-xs text-cyan-400/70">
+                            {selectedSuggestions.size > 0
+                              ? `Selected suggestions will be included in the next generation`
+                              : "Select suggestions to include in the generation"}
+                          </p>
+                        </div>
+                      )}
                     </>
                   ) : (
                     <div className="flex items-center justify-center py-8">
@@ -624,6 +894,16 @@ export function DrawingCanvas() {
                         <Download className="h-4 w-4" />
                         Download Image
                       </a>
+                      <button
+                        onClick={handleRegenerateCaption}
+                        disabled={generateCaption.isPending}
+                        className="flex w-full items-center justify-center gap-2 rounded-lg bg-linear-to-r from-cyan-500 to-blue-500 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:from-cyan-600 hover:to-blue-600 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        <Sparkles className="h-4 w-4" />
+                        {generateCaption.isPending
+                          ? "Analyzing..."
+                          : "Continue Telephone Game →"}
+                      </button>
                     </div>
                   ) : generateImage.isPending ? (
                     <div className="flex flex-col items-center justify-center py-12">
@@ -693,6 +973,11 @@ export function DrawingCanvas() {
               )}
             </div>
           </div>
+        )}
+
+        {/* QR Code Modal */}
+        {showQR && qrCodeUrl && (
+          <QRCodeModal url={qrCodeUrl} onClose={() => setShowQR(false)} />
         )}
       </div>
     </div>

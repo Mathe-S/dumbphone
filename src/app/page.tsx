@@ -144,7 +144,7 @@ export default function Home() {
                 </div>
                 <h3 className="mb-3 text-2xl font-bold text-white">Draw Your Image</h3>
                 <p className="animate-blue-pulse text-blue-200">
-                  Draw literally anything, the dumber the better. We're not judging (yet) 👀
+                  Draw literally anything, the dumber the better. We&apos;re not judging (yet) 👀
                 </p>
               </div>
 
