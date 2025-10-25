@@ -518,7 +518,7 @@ export function DrawingCanvas({
 
   const handleShowQR = () => {
     if (typeof window !== "undefined") {
-      const url = window.location.href;
+      const url = `https://dumbphone-three.vercel.app${window.location.pathname}`;
       setQRCodeUrl(url);
       setShowQR(true);
     }
