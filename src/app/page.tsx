@@ -7,18 +7,41 @@ export default function Home() {
     <>
       <style jsx global>{`
         @keyframes blueShift {
-          0%, 100% { color: #60a5fa; }
-          25% { color: #3b82f6; }
-          50% { color: #2563eb; }
-          75% { color: #1d4ed8; }
+          0%,
+          100% {
+            color: #60a5fa;
+          }
+          25% {
+            color: #3b82f6;
+          }
+          50% {
+            color: #2563eb;
+          }
+          75% {
+            color: #1d4ed8;
+          }
         }
         @keyframes bluePulse {
-          0%, 100% { color: #93c5fd; }
-          50% { color: #1e40af; }
+          0%,
+          100% {
+            color: #93c5fd;
+          }
+          50% {
+            color: #1e40af;
+          }
         }
         @keyframes blueGlow {
-          0%, 100% { text-shadow: 0 0 10px #3b82f6, 0 0 20px #60a5fa; }
-          50% { text-shadow: 0 0 20px #1d4ed8, 0 0 40px #2563eb; }
+          0%,
+          100% {
+            text-shadow:
+              0 0 10px #3b82f6,
+              0 0 20px #60a5fa;
+          }
+          50% {
+            text-shadow:
+              0 0 20px #1d4ed8,
+              0 0 40px #2563eb;
+          }
         }
         .animate-blue-shift {
           animation: blueShift 4s ease-in-out infinite;
@@ -37,7 +60,7 @@ export default function Home() {
           <div className="absolute inset-0 overflow-hidden">
             <div className="absolute -top-40 -right-40 h-80 w-80 rounded-full bg-blue-500/20 blur-3xl" />
             <div className="absolute top-1/2 -left-40 h-96 w-96 rounded-full bg-cyan-500/10 blur-3xl" />
-            <div className="absolute bottom-0 right-1/4 h-64 w-64 rounded-full bg-blue-400/10 blur-3xl" />
+            <div className="absolute right-1/4 bottom-0 h-64 w-64 rounded-full bg-blue-400/10 blur-3xl" />
           </div>
 
           <div className="relative mx-auto max-w-7xl px-4 py-24 sm:px-6 lg:px-8">
@@ -54,7 +77,7 @@ export default function Home() {
               </div>
 
               <h1 className="mb-6 text-6xl font-extrabold tracking-tight text-white sm:text-7xl lg:text-8xl">
-                <span className="block animate-blue-shift">dumb</span>
+                <span className="animate-blue-shift block">dumb</span>
                 <span className="animate-blue-glow block bg-gradient-to-r from-blue-400 via-cyan-400 to-blue-500 bg-clip-text text-transparent">
                   phone
                 </span>
@@ -195,7 +218,8 @@ export default function Home() {
                 </a>
               </p>
               <p className="mt-2 text-sm text-blue-400">
-                Powered by Replicate • DigitalOcean • Next.js • <span className="animate-blue-shift">pure chaos energy</span> ⚡
+                Powered by Replicate • DigitalOcean • Next.js •{" "}
+                <span className="animate-blue-shift">pure chaos energy</span> ⚡
               </p>
             </div>
           </div>
