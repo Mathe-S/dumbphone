@@ -8,6 +8,13 @@
       "when": 1761417557018,
       "tag": "0000_opposite_madelyne_pryor",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1761427582061,
+      "tag": "0001_fixed_stranger",
+      "breakpoints": true
     }
   ]
 }

@@ -12,8 +12,11 @@ import {
   Sparkles,
   Image as ImageIcon,
   X,
+  QrCode,
+  Send,
 } from "lucide-react";
 import { api } from "@/trpc/react";
+import { QRCodeModal } from "./QRCodeModal";
 
 interface Point {
   x: number;
@@ -26,13 +29,23 @@ interface DrawingPath {
   width: number;
 }
 
-export function DrawingCanvas() {
+interface DrawingCanvasProps {
+  pageUserId: string;
+  currentUserId: string | null;
+  isOwner: boolean;
+}
+
+export function DrawingCanvas({
+  pageUserId: _pageUserId,
+  currentUserId,
+  isOwner,
+}: DrawingCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [currentPath, setCurrentPath] = useState<Point[]>([]);
   const [paths, setPaths] = useState<DrawingPath[]>([]);
   const [redoStack, setRedoStack] = useState<DrawingPath[]>([]);
-  const [brushColor, setBrushColor] = useState("#000000");
+  const [brushColor, setBrushColor] = useState("#0000FF");
   const [brushWidth, setBrushWidth] = useState(3);
   const [isEraser, setIsEraser] = useState(false);
   const [showColorPicker, setShowColorPicker] = useState(false);
@@ -41,6 +54,10 @@ export function DrawingCanvas() {
     null,
   );
   const [showResults, setShowResults] = useState(false);
+  const [showQR, setShowQR] = useState(false);
+  const [qrCodeUrl, setQRCodeUrl] = useState<string | null>(null);
+  const [suggestion, setSuggestion] = useState("");
+  const [drawingId] = useState(1); // TODO: Get from database
 
   const generateCaption = api.caption.generateFromBase64.useMutation({
     onSuccess: (data) => {
@@ -63,6 +80,22 @@ export function DrawingCanvas() {
       alert("Failed to generate image. Please try again.");
     },
   });
+
+  const createSuggestion = api.suggestion.create.useMutation({
+    onSuccess: () => {
+      setSuggestion("");
+      alert("Suggestion sent! The owner will see it when they generate.");
+    },
+    onError: (error) => {
+      console.error("Suggestion failed:", error);
+      alert("Failed to send suggestion. Please try again.");
+    },
+  });
+
+  const { data: suggestions = [] } = api.suggestion.getByDrawingId.useQuery(
+    { drawingId },
+    { enabled: isOwner && showResults },
+  );
 
   const colors = [
     "#000000",
@@ -275,6 +308,23 @@ export function DrawingCanvas() {
     setGeneratedImageUrl(null);
   };
 
+  const handleSubmitSuggestion = () => {
+    if (!suggestion.trim()) return;
+    createSuggestion.mutate({
+      drawingId,
+      visitorId: currentUserId ?? undefined,
+      suggestion: suggestion.trim(),
+    });
+  };
+
+  const handleShowQR = () => {
+    if (typeof window !== "undefined") {
+      const url = window.location.href;
+      setQRCodeUrl(url);
+      setShowQR(true);
+    }
+  };
+
   return (
     <div className="flex h-full flex-col">
       {/* Toolbar */}
@@ -320,7 +370,7 @@ export function DrawingCanvas() {
           </button>
 
           {showColorPicker && (
-            <div className="absolute left-0 top-full z-10 mt-1 grid grid-cols-5 gap-2 rounded-lg border bg-white p-3 shadow-lg">
+            <div className="absolute top-full left-0 z-10 mt-1 grid grid-cols-5 gap-2 rounded-lg border bg-white p-3 shadow-lg">
               {colors.map((color) => (
                 <button
                   key={color}
@@ -389,18 +439,30 @@ export function DrawingCanvas() {
           </button>
         </div>
 
-        {/* AI Generation */}
-        <button
-          onClick={handleGenerateCaption}
-          disabled={generateCaption.isPending || paths.length === 0}
-          className="ml-auto flex items-center gap-2 rounded-lg border border-blue-400/50 bg-linear-to-r from-blue-500 to-cyan-500 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:from-blue-600 hover:to-cyan-600 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:from-blue-500 disabled:hover:to-cyan-500"
-          title="Generate Caption & Image with AI"
-        >
-          <Sparkles className="h-4 w-4" />
-          {generateCaption.isPending
-            ? "Analyzing..."
-            : "Generate with AI"}
-        </button>
+        {/* QR Code Button (Owner Only) */}
+        {isOwner && (
+          <button
+            onClick={handleShowQR}
+            className="ml-auto flex items-center gap-2 rounded-lg border border-blue-400/50 bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-blue-700"
+            title="Show QR Code"
+          >
+            <QrCode className="h-4 w-4" />
+            Share
+          </button>
+        )}
+
+        {/* AI Generation (Owner Only) */}
+        {isOwner && (
+          <button
+            onClick={handleGenerateCaption}
+            disabled={generateCaption.isPending || paths.length === 0}
+            className={`flex items-center gap-2 rounded-lg border border-blue-400/50 bg-linear-to-r from-blue-500 to-cyan-500 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:from-blue-600 hover:to-cyan-600 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:from-blue-500 disabled:hover:to-cyan-500 ${!isOwner ? "ml-auto" : ""}`}
+            title="Generate Caption & Image with AI"
+          >
+            <Sparkles className="h-4 w-4" />
+            {generateCaption.isPending ? "Analyzing..." : "Generate with AI"}
+          </button>
+        )}
 
         {/* Export Controls */}
         <div className="flex items-center gap-1 rounded-lg border bg-gray-50 p-1">
@@ -422,6 +484,36 @@ export function DrawingCanvas() {
           </button>
         </div>
       </div>
+
+      {/* Visitor Suggestion Input */}
+      {!isOwner && (
+        <div className="border-b bg-blue-50 px-4 py-3">
+          <div className="mx-auto max-w-4xl">
+            <label className="mb-2 block text-sm font-medium text-blue-900">
+              Suggest an idea for the next image:
+            </label>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={suggestion}
+                onChange={(e) => setSuggestion(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleSubmitSuggestion()}
+                placeholder="Type your creative suggestion here..."
+                maxLength={500}
+                className="flex-1 rounded-lg border border-blue-300 px-4 py-2 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 focus:outline-none"
+              />
+              <button
+                onClick={handleSubmitSuggestion}
+                disabled={!suggestion.trim() || createSuggestion.isPending}
+                className="flex items-center gap-2 rounded-lg bg-linear-to-r from-blue-500 to-cyan-500 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:from-blue-600 hover:to-cyan-600 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <Send className="h-4 w-4" />
+                {createSuggestion.isPending ? "Sending..." : "Send"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Canvas */}
       <div className="relative flex-1 overflow-hidden bg-gray-100">
@@ -445,7 +537,7 @@ export function DrawingCanvas() {
               {/* Close Button */}
               <button
                 onClick={handleCloseResults}
-                className="absolute right-4 top-4 rounded-lg p-2 text-blue-300 transition hover:bg-blue-800/50 hover:text-white"
+                className="absolute top-4 right-4 rounded-lg p-2 text-blue-300 transition hover:bg-blue-800/50 hover:text-white"
                 title="Close"
               >
                 <X className="h-5 w-5" />
@@ -460,6 +552,28 @@ export function DrawingCanvas() {
                   </span>
                 </div>
               </div>
+
+              {/* Visitor Suggestions (Owner Only) */}
+              {isOwner && suggestions.length > 0 && (
+                <div className="mb-6 rounded-xl border border-blue-400/20 bg-blue-900/40 p-6">
+                  <h3 className="mb-3 text-lg font-semibold text-white">
+                    Visitor Suggestions ({suggestions.length})
+                  </h3>
+                  <div className="max-h-40 space-y-2 overflow-y-auto">
+                    {suggestions.map((s) => (
+                      <div
+                        key={s.id}
+                        className="rounded-lg border border-blue-400/10 bg-blue-800/30 p-3"
+                      >
+                        <p className="text-sm text-blue-100">{s.suggestion}</p>
+                        <p className="mt-1 text-xs text-blue-400">
+                          {new Date(s.createdAt).toLocaleString()}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* Content Grid */}
               <div className="grid gap-6 lg:grid-cols-2">
@@ -537,6 +651,11 @@ export function DrawingCanvas() {
               </div>
             </div>
           </div>
+        )}
+
+        {/* QR Code Modal */}
+        {showQR && qrCodeUrl && (
+          <QRCodeModal url={qrCodeUrl} onClose={() => setShowQR(false)} />
         )}
       </div>
     </div>
