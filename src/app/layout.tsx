@@ -11,6 +11,7 @@ import {
   SignedOut,
   UserButton,
 } from "@clerk/nextjs";
+import { Pencil } from "lucide-react";
 
 import { TRPCReactProvider } from "@/trpc/react";
 
@@ -35,9 +36,16 @@ export default function RootLayout({
           <header className="sticky top-0 z-50 border-b bg-white/70 backdrop-blur supports-backdrop-filter:bg-white/60">
             <div className="mx-auto w-full max-w-5xl px-4">
               <div className="flex h-14 items-center justify-between">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-4">
                   <Link href="/" className="text-base font-semibold tracking-tight">
                     dumbphone
+                  </Link>
+                  <Link
+                    href="/draw"
+                    className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium text-gray-700 transition hover:bg-gray-100"
+                  >
+                    <Pencil className="h-4 w-4" />
+                    Draw
                   </Link>
                 </div>
                 <div className="flex items-center gap-2">
