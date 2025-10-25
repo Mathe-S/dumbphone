@@ -41,11 +41,17 @@ export function DrawingCanvas() {
     null,
   );
   const [showResults, setShowResults] = useState(false);
+  const [chainHistory, setChainHistory] = useState<
+    Array<{ iteration: number; caption: string; imageUrl: string }>
+  >([]);
+  const [currentIteration, setCurrentIteration] = useState(0);
+  const [waitingForUser, setWaitingForUser] = useState(false);
 
   const generateCaption = api.caption.generateFromBase64.useMutation({
     onSuccess: (data) => {
       setCaption(data.caption);
       setShowResults(true);
+      setWaitingForUser(true);
     },
     onError: (error) => {
       console.error("Caption generation failed:", error);
@@ -57,6 +63,19 @@ export function DrawingCanvas() {
     onSuccess: (data) => {
       console.log("Image generated successfully:", data.imageUrl);
       setGeneratedImageUrl(data.imageUrl);
+      setWaitingForUser(true);
+      
+      // Add to history
+      if (caption) {
+        setChainHistory((prev) => [
+          ...prev,
+          {
+            iteration: currentIteration,
+            caption: caption,
+            imageUrl: data.imageUrl,
+          },
+        ]);
+      }
     },
     onError: (error) => {
       console.error("Image generation failed:", error);
@@ -248,31 +267,97 @@ export function DrawingCanvas() {
     link.click();
   };
 
-  const handleGenerateCaption = () => {
+  const handleGenerateCaptionFromDrawing = () => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    // Reset previous results
-    setCaption(null);
-    setGeneratedImageUrl(null);
-    setShowResults(false);
-
     // Get canvas data as base64
     const dataUrl = canvas.toDataURL("image/png");
+
+    // Show results panel and increment iteration
+    if (!showResults) {
+      setShowResults(true);
+      setCurrentIteration(1);
+    }
 
     // Generate caption
     generateCaption.mutate({ imageBase64: dataUrl });
   };
 
-  const handleGenerateImage = () => {
+  const handleGenerateImageFromCaption = () => {
     if (!caption) return;
-    generateImage.mutate({ caption });
+    setWaitingForUser(false);
+    // Append "make it extremely dumber" to every prompt
+    const modifiedCaption = `${caption}, make it extremely dumber`;
+    generateImage.mutate({ caption: modifiedCaption });
+  };
+
+  const handleGenerateCaptionFromImage = async () => {
+    if (!generatedImageUrl) return;
+
+    const imageUrlToFetch = generatedImageUrl;
+    
+    // Reset caption and increment iteration
+    setCaption(null);
+    setWaitingForUser(false);
+    setCurrentIteration((prev) => prev + 1);
+
+    try {
+      // Fetch the generated image and convert to base64
+      const response = await fetch(imageUrlToFetch);
+      const blob = await response.blob();
+      const reader = new FileReader();
+
+      reader.onloadend = () => {
+        const base64data = reader.result as string;
+        console.log(`Generating caption from image for iteration ${currentIteration + 1}`);
+        generateCaption.mutate({ imageBase64: base64data });
+      };
+
+      reader.readAsDataURL(blob);
+    } catch (error) {
+      console.error("Failed to fetch image:", error);
+      alert("Failed to fetch image for caption generation");
+    }
+  };
+
+  const handleContinueChain = async () => {
+    if (!generatedImageUrl) return;
+
+    const imageUrlToFetch = generatedImageUrl;
+    
+    // Reset state for next iteration
+    setWaitingForUser(false);
+    setCaption(null);
+    setGeneratedImageUrl(null);
+    setCurrentIteration((prev) => prev + 1);
+
+    try {
+      // Fetch the generated image and convert to base64
+      const response = await fetch(imageUrlToFetch);
+      const blob = await response.blob();
+      const reader = new FileReader();
+
+      reader.onloadend = () => {
+        const base64data = reader.result as string;
+        console.log(`Starting iteration ${currentIteration + 1} with generated image`);
+        generateCaption.mutate({ imageBase64: base64data });
+      };
+
+      reader.readAsDataURL(blob);
+    } catch (error) {
+      console.error("Failed to fetch image:", error);
+      alert("Failed to fetch image for next iteration");
+    }
   };
 
   const handleCloseResults = () => {
     setShowResults(false);
     setCaption(null);
     setGeneratedImageUrl(null);
+    setChainHistory([]);
+    setCurrentIteration(0);
+    setWaitingForUser(false);
   };
 
   return (
@@ -389,18 +474,30 @@ export function DrawingCanvas() {
           </button>
         </div>
 
-        {/* AI Generation */}
-        <button
-          onClick={handleGenerateCaption}
-          disabled={generateCaption.isPending || paths.length === 0}
-          className="ml-auto flex items-center gap-2 rounded-lg border border-blue-400/50 bg-linear-to-r from-blue-500 to-cyan-500 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:from-blue-600 hover:to-cyan-600 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:from-blue-500 disabled:hover:to-cyan-500"
-          title="Generate Caption & Image with AI"
-        >
-          <Sparkles className="h-4 w-4" />
-          {generateCaption.isPending
-            ? "Analyzing..."
-            : "Generate with AI"}
-        </button>
+        {/* AI Tools */}
+        <div className="ml-auto flex items-center gap-2">
+          {/* Generate Caption */}
+          <button
+            onClick={handleGenerateCaptionFromDrawing}
+            disabled={generateCaption.isPending || paths.length === 0}
+            className="flex items-center gap-2 rounded-lg border border-purple-400/50 bg-gradient-to-r from-purple-500 to-pink-500 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:from-purple-600 hover:to-pink-600 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:from-purple-500 disabled:hover:to-pink-500"
+            title="Generate Caption from Drawing"
+          >
+            <Sparkles className="h-4 w-4" />
+            {generateCaption.isPending ? "Analyzing..." : "Generate Caption"}
+          </button>
+
+          {/* Generate Image */}
+          <button
+            onClick={handleGenerateImageFromCaption}
+            disabled={generateImage.isPending || !caption}
+            className="flex items-center gap-2 rounded-lg border border-blue-400/50 bg-gradient-to-r from-blue-500 to-cyan-500 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:from-blue-600 hover:to-cyan-600 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:from-blue-500 disabled:hover:to-cyan-500"
+            title="Generate Image from Caption"
+          >
+            <ImageIcon className="h-4 w-4" />
+            {generateImage.isPending ? "Creating..." : "Generate Image"}
+          </button>
+        </div>
 
         {/* Export Controls */}
         <div className="flex items-center gap-1 rounded-lg border bg-gray-50 p-1">
@@ -440,8 +537,8 @@ export function DrawingCanvas() {
 
         {/* AI Results Panel */}
         {showResults && (
-          <div className="absolute inset-0 z-10 flex items-center justify-center bg-blue-950/80 p-4 backdrop-blur-sm">
-            <div className="relative w-full max-w-4xl rounded-2xl border border-blue-400/30 bg-linear-to-br from-blue-950 via-blue-900 to-blue-800 p-8 shadow-2xl">
+          <div className="absolute inset-0 z-10 flex items-center justify-center overflow-auto bg-blue-950/80 p-4 backdrop-blur-sm">
+            <div className="relative my-auto w-full max-w-4xl rounded-2xl border border-blue-400/30 bg-linear-to-br from-blue-950 via-blue-900 to-blue-800 p-8 shadow-2xl">
               {/* Close Button */}
               <button
                 onClick={handleCloseResults}
@@ -475,7 +572,7 @@ export function DrawingCanvas() {
                     <>
                       <p className="mb-4 text-base text-blue-100">{caption}</p>
                       <button
-                        onClick={handleGenerateImage}
+                        onClick={handleGenerateImageFromCaption}
                         disabled={generateImage.isPending}
                         className="flex w-full items-center justify-center gap-2 rounded-lg bg-linear-to-r from-blue-500 to-cyan-500 px-4 py-3 text-sm font-medium text-white shadow-sm transition hover:from-blue-600 hover:to-cyan-600 disabled:cursor-not-allowed disabled:opacity-50"
                       >
@@ -510,6 +607,15 @@ export function DrawingCanvas() {
                           className="h-auto w-full"
                         />
                       </div>
+                      {waitingForUser && (
+                        <button
+                          onClick={handleGenerateCaptionFromImage}
+                          className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-green-500 to-emerald-500 px-4 py-2 text-sm font-medium text-white transition hover:from-green-600 hover:to-emerald-600"
+                        >
+                          <Sparkles className="h-4 w-4" />
+                          Caption from Image
+                        </button>
+                      )}
                       <a
                         href={generatedImageUrl}
                         download="ai-generated.png"
@@ -535,6 +641,56 @@ export function DrawingCanvas() {
                   )}
                 </div>
               </div>
+
+              {/* Chain History */}
+              {chainHistory.length > 0 && (
+                <div className="mt-6 space-y-4">
+                  <h3 className="text-sm font-semibold text-blue-200">
+                    Previous Iterations ({chainHistory.length})
+                  </h3>
+                  <div className="space-y-3">
+                    {chainHistory.map((item) => (
+                      <div
+                        key={item.iteration}
+                        className="rounded-lg border border-blue-400/10 bg-blue-950/30 p-4"
+                      >
+                        <div className="mb-2 flex items-center gap-2">
+                          <div className="flex h-6 w-6 items-center justify-center rounded-full bg-blue-600 text-xs font-bold text-white">
+                            {item.iteration}
+                          </div>
+                          <span className="text-sm font-medium text-white">
+                            Iteration {item.iteration}
+                          </span>
+                        </div>
+                        <div className="grid gap-3 lg:grid-cols-2">
+                          <div>
+                            <p className="mb-1 text-xs text-blue-400">Caption:</p>
+                            <p className="text-sm text-blue-100">{item.caption}</p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <div className="flex-1 overflow-hidden rounded border border-blue-400/20">
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img
+                                src={item.imageUrl}
+                                alt={`Iteration ${item.iteration}`}
+                                className="h-auto w-full"
+                              />
+                            </div>
+                            <a
+                              href={item.imageUrl}
+                              download={`iteration-${item.iteration}.png`}
+                              className="rounded-lg border border-blue-400/50 bg-blue-800/50 p-2 text-blue-100 transition hover:bg-blue-700/50"
+                              title="Download"
+                            >
+                              <Download className="h-4 w-4" />
+                            </a>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}
