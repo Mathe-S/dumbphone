@@ -7,18 +7,41 @@ export default function Home() {
     <>
       <style jsx global>{`
         @keyframes blueShift {
-          0%, 100% { color: #60a5fa; }
-          25% { color: #3b82f6; }
-          50% { color: #2563eb; }
-          75% { color: #1d4ed8; }
+          0%,
+          100% {
+            color: #60a5fa;
+          }
+          25% {
+            color: #3b82f6;
+          }
+          50% {
+            color: #2563eb;
+          }
+          75% {
+            color: #1d4ed8;
+          }
         }
         @keyframes bluePulse {
-          0%, 100% { color: #93c5fd; }
-          50% { color: #1e40af; }
+          0%,
+          100% {
+            color: #93c5fd;
+          }
+          50% {
+            color: #1e40af;
+          }
         }
         @keyframes blueGlow {
-          0%, 100% { text-shadow: 0 0 10px #3b82f6, 0 0 20px #60a5fa; }
-          50% { text-shadow: 0 0 20px #1d4ed8, 0 0 40px #2563eb; }
+          0%,
+          100% {
+            text-shadow:
+              0 0 10px #3b82f6,
+              0 0 20px #60a5fa;
+          }
+          50% {
+            text-shadow:
+              0 0 20px #1d4ed8,
+              0 0 40px #2563eb;
+          }
         }
         .animate-blue-shift {
           animation: blueShift 4s ease-in-out infinite;
@@ -37,7 +60,7 @@ export default function Home() {
           <div className="absolute inset-0 overflow-hidden">
             <div className="absolute -top-40 -right-40 h-80 w-80 rounded-full bg-blue-500/20 blur-3xl" />
             <div className="absolute top-1/2 -left-40 h-96 w-96 rounded-full bg-cyan-500/10 blur-3xl" />
-            <div className="absolute bottom-0 right-1/4 h-64 w-64 rounded-full bg-blue-400/10 blur-3xl" />
+            <div className="absolute right-1/4 bottom-0 h-64 w-64 rounded-full bg-blue-400/10 blur-3xl" />
           </div>
 
           <div className="relative mx-auto max-w-7xl px-4 py-24 sm:px-6 lg:px-8">
@@ -54,19 +77,24 @@ export default function Home() {
               </div>
 
               <h1 className="mb-6 text-6xl font-extrabold tracking-tight text-white sm:text-7xl lg:text-8xl">
-                <span className="block animate-blue-shift">dumb</span>
+                <span className="animate-blue-shift block">dumb</span>
                 <span className="animate-blue-glow block bg-gradient-to-r from-blue-400 via-cyan-400 to-blue-500 bg-clip-text text-transparent">
                   phone
                 </span>
               </h1>
 
               <p className="mx-auto mb-4 max-w-2xl text-xl text-blue-100 sm:text-2xl">
-                <span className="animate-blue-pulse">you are not invited</span> 📵
+                <span className="animate-blue-pulse">you are not invited</span>{" "}
+                📵
               </p>
               <p className="mx-auto mb-12 max-w-3xl text-lg text-blue-300">
-                Play telephone with AI... except nobody invited you to the party.
+                Play telephone with AI... except nobody invited you to the
+                party.
                 <br />
-                <span className="animate-blue-shift inline-block">Watch prompts get absolutely COOKED</span> 🔥
+                <span className="animate-blue-shift inline-block">
+                  Watch prompts get absolutely COOKED
+                </span>{" "}
+                🔥
               </p>
 
               {/* CTA Buttons */}
@@ -118,9 +146,12 @@ export default function Home() {
                     />
                   </svg>
                 </div>
-                <h3 className="mb-2 text-xl font-bold text-white">AI-Powered Generation</h3>
+                <h3 className="mb-2 text-xl font-bold text-white">
+                  AI-Powered Generation
+                </h3>
                 <p className="animate-blue-pulse text-blue-200">
-                  Start with any prompt and watch it become absolutely UNHINGED 🤪
+                  Start with any prompt and watch it become absolutely UNHINGED
+                  🤪
                 </p>
               </div>
 
@@ -140,7 +171,9 @@ export default function Home() {
                     />
                   </svg>
                 </div>
-                <h3 className="mb-2 text-xl font-bold text-white">Progressive Degradation</h3>
+                <h3 className="mb-2 text-xl font-bold text-white">
+                  Progressive Degradation
+                </h3>
                 <p className="animate-blue-shift text-blue-200">
                   Each iteration gets MORE COOKED than the last 💀
                 </p>
@@ -162,7 +195,9 @@ export default function Home() {
                     />
                   </svg>
                 </div>
-                <h3 className="mb-2 text-xl font-bold text-white">Embrace the Dumb</h3>
+                <h3 className="mb-2 text-xl font-bold text-white">
+                  Embrace the Dumb
+                </h3>
                 <p className="animate-blue-pulse text-blue-200">
                   no thoughts, head empty, just vibes ✨ (and broken AI)
                 </p>
@@ -179,7 +214,10 @@ export default function Home() {
                 How It Works
               </h2>
               <p className="mx-auto mb-16 max-w-2xl text-lg text-blue-200">
-                <span className="animate-blue-shift">A simple three-step process to maximum chaos</span> 🎭
+                <span className="animate-blue-shift">
+                  A simple three-step process to maximum chaos
+                </span>{" "}
+                🎭
               </p>
             </div>
 
@@ -188,9 +226,11 @@ export default function Home() {
                 <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 text-2xl font-bold text-white">
                   1
                 </div>
-                <h3 className="mb-3 text-2xl font-bold text-white">Enter Your Prompt</h3>
+                <h3 className="mb-3 text-2xl font-bold text-white">
+                  Enter Your Prompt
+                </h3>
                 <p className="animate-blue-pulse text-blue-200">
-                  Type literally anything. We're not judging (yet) 👀
+                  Type literally anything. We&apos;re not judging (yet) 👀
                 </p>
               </div>
 
@@ -198,7 +238,9 @@ export default function Home() {
                 <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 text-2xl font-bold text-white">
                   2
                 </div>
-                <h3 className="mb-3 text-2xl font-bold text-white">Watch It Degrade</h3>
+                <h3 className="mb-3 text-2xl font-bold text-white">
+                  Watch It Degrade
+                </h3>
                 <p className="animate-blue-shift text-blue-200">
                   AI plays telephone with itself and loses its MIND 🧠❌
                 </p>
@@ -208,9 +250,12 @@ export default function Home() {
                 <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 text-2xl font-bold text-white">
                   3
                 </div>
-                <h3 className="mb-3 text-2xl font-bold text-white">Share & Laugh</h3>
+                <h3 className="mb-3 text-2xl font-bold text-white">
+                  Share & Laugh
+                </h3>
                 <p className="animate-blue-pulse text-blue-200">
-                  Post your cursed creations and become internet famous* 🌟<br />
+                  Post your cursed creations and become internet famous* 🌟
+                  <br />
                   <span className="text-xs">*results not guaranteed</span>
                 </p>
               </div>
@@ -225,7 +270,12 @@ export default function Home() {
               <span className="animate-blue-glow">Ready to Get Dumb?</span>
             </h2>
             <p className="mb-8 text-xl text-blue-200">
-              <span className="animate-blue-shift">Join the chaos.</span> Embrace the cringe. <span className="animate-blue-pulse">Become one with the void.</span> 🌀
+              <span className="animate-blue-shift">Join the chaos.</span>{" "}
+              Embrace the cringe.{" "}
+              <span className="animate-blue-pulse">
+                Become one with the void.
+              </span>{" "}
+              🌀
             </p>
             <Link
               href="#demo"
@@ -265,7 +315,8 @@ export default function Home() {
                 </a>
               </p>
               <p className="mt-2 text-sm text-blue-400">
-                Powered by Replicate • DigitalOcean • Next.js • <span className="animate-blue-shift">pure chaos energy</span> ⚡
+                Powered by Replicate • DigitalOcean • Next.js •{" "}
+                <span className="animate-blue-shift">pure chaos energy</span> ⚡
               </p>
             </div>
           </div>

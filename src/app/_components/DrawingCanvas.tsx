@@ -9,7 +9,9 @@ import {
   Redo,
   Trash2,
   Palette,
+  Sparkles,
 } from "lucide-react";
+import { api } from "@/trpc/react";
 
 interface Point {
   x: number;
@@ -32,6 +34,17 @@ export function DrawingCanvas() {
   const [brushWidth, setBrushWidth] = useState(3);
   const [isEraser, setIsEraser] = useState(false);
   const [showColorPicker, setShowColorPicker] = useState(false);
+  const [caption, setCaption] = useState<string | null>(null);
+
+  const generateCaption = api.caption.generateFromBase64.useMutation({
+    onSuccess: (data) => {
+      setCaption(data.caption);
+    },
+    onError: (error) => {
+      console.error("Caption generation failed:", error);
+      alert("Failed to generate caption. Please try again.");
+    },
+  });
 
   const colors = [
     "#000000",
@@ -217,6 +230,17 @@ export function DrawingCanvas() {
     link.click();
   };
 
+  const handleGenerateCaption = () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    // Get canvas data as base64
+    const dataUrl = canvas.toDataURL("image/png");
+
+    // Generate caption
+    generateCaption.mutate({ imageBase64: dataUrl });
+  };
+
   return (
     <div className="flex h-full flex-col">
       {/* Toolbar */}
@@ -331,8 +355,19 @@ export function DrawingCanvas() {
           </button>
         </div>
 
+        {/* Caption Generation */}
+        <button
+          onClick={handleGenerateCaption}
+          disabled={generateCaption.isPending || paths.length === 0}
+          className="ml-auto flex items-center gap-2 rounded-lg border border-purple-400/50 bg-gradient-to-r from-purple-500 to-pink-500 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:from-purple-600 hover:to-pink-600 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:from-purple-500 disabled:hover:to-pink-500"
+          title="Generate Caption with AI"
+        >
+          <Sparkles className="h-4 w-4" />
+          {generateCaption.isPending ? "Generating..." : "Generate Caption"}
+        </button>
+
         {/* Export Controls */}
-        <div className="ml-auto flex items-center gap-1 rounded-lg border bg-gray-50 p-1">
+        <div className="flex items-center gap-1 rounded-lg border bg-gray-50 p-1">
           <button
             onClick={() => exportImage("png")}
             className="flex items-center gap-2 rounded bg-white px-3 py-2 text-sm font-medium text-gray-900 shadow-sm transition hover:bg-gray-50"
@@ -366,6 +401,28 @@ export function DrawingCanvas() {
           className="h-full w-full cursor-crosshair touch-none"
           style={{ width: "100%", height: "100%" }}
         />
+
+        {/* Caption Display */}
+        {caption && (
+          <div className="absolute bottom-4 left-1/2 max-w-2xl -translate-x-1/2 transform rounded-lg border border-purple-400/50 bg-gradient-to-r from-purple-500/95 to-pink-500/95 px-6 py-4 shadow-lg backdrop-blur-sm">
+            <div className="flex items-start gap-3">
+              <Sparkles className="mt-0.5 h-5 w-5 flex-shrink-0 text-white" />
+              <div className="flex-1">
+                <p className="text-sm font-medium text-white/90">AI Caption</p>
+                <p className="mt-1 text-base font-semibold text-white">
+                  {caption}
+                </p>
+              </div>
+              <button
+                onClick={() => setCaption(null)}
+                className="text-white/80 transition hover:text-white"
+                title="Close"
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
