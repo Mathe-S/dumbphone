@@ -11,6 +11,7 @@ import {
   SignedOut,
   UserButton,
 } from "@clerk/nextjs";
+import { Pencil } from "lucide-react";
 
 import { TRPCReactProvider } from "@/trpc/react";
 
@@ -43,6 +44,13 @@ export default function RootLayout({
                     <span className="text-lg font-bold text-white">
                       dumb<span className="text-blue-400">phone</span>
                     </span>
+                  </Link>
+                  <Link
+                    href="/draw"
+                    className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium text-gray-700 transition hover:bg-gray-100"
+                  >
+                    <Pencil className="h-4 w-4" />
+                    Draw
                   </Link>
                 </div>
                 <div className="flex items-center gap-3">

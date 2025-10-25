@@ -29,6 +29,9 @@ importers:
       drizzle-orm:
         specifier: ^0.41.0
         version: 0.41.0(gel@2.1.1)(postgres@3.4.7)
+      lucide-react:
+        specifier: ^0.548.0
+        version: 0.548.0(react@19.2.0)
       next:
         specifier: ^15.2.3
         version: 15.5.6(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
@@ -38,6 +41,9 @@ importers:
       react:
         specifier: ^19.0.0
         version: 19.2.0
+      react-canvas-draw:
+        specifier: ^1.2.1
+        version: 1.2.1(react@19.2.0)
       react-dom:
         specifier: ^19.0.0
         version: 19.2.0(react@19.2.0)
@@ -1144,6 +1150,9 @@ packages:
   caniuse-lite@1.0.30001751:
     resolution: {integrity: sha512-A0QJhug0Ly64Ii3eIqHu5X51ebln3k4yTUkY1j8drqpWHVreg/VLijN48cZ1bYPiqOQuqpkIKnzr/Ul8V+p6Cw==}
 
+  catenary-curve@1.0.1:
+    resolution: {integrity: sha512-vSHQtYFjItV4wxUH5OkicA3Kmln6thBBWlJLiw2f4apfvkKw4BVe8bTbG6lnbJe60CIr8PyHzjSX27blSJ07Ww==}
+
   chalk@4.1.2:
     resolution: {integrity: sha512-oKnbhFyRIXpUuez8iBMmyEa4nbj4IOQyuhc/wy9kY7/WVPcwIO9VA668Pu8RkO7+0G76SLROeyw9CpQ061i4mA==}
     engines: {node: '>=10'}
@@ -1839,6 +1848,9 @@ packages:
     resolution: {integrity: sha512-MbjN408fEndfiQXbFQ1vnd+1NoLDsnQW41410oQBXiyXDMYH5z505juWa4KUE1LqxRC7DgOgZDbKLxHIwm27hA==}
     engines: {node: '>=0.10'}
 
+  lazy-brush@1.0.1:
+    resolution: {integrity: sha512-xT/iSClTVi7vLoF8dCWTBhCuOWqsLXCMPa6ucVmVAk6hyNCM5JeS1NLhXqIrJktUg+caEYKlqSOUU4u3cpXzKg==}
+
   levn@0.4.1:
     resolution: {integrity: sha512-+bT2uH4E5LGE7h/n3evcS/sQlJXCpIp6ym8OWJ5eV6+67Dsql/LaaT7qJBAt2rzfoa/5QBGBhxDix1dMt2kQKQ==}
     engines: {node: '>= 0.8.0'}
@@ -1923,6 +1935,11 @@ packages:
   loose-envify@1.4.0:
     resolution: {integrity: sha512-lyuxPGr/Wfhrlem2CL/UcnUc1zcqKAImBDzukY7Y5F/yQiNdko6+fRLevlw1HgMySw7f611UIY408EtxRSoK3Q==}
     hasBin: true
+
+  lucide-react@0.548.0:
+    resolution: {integrity: sha512-63b16z63jM9yc1MwxajHeuu0FRZFsDtljtDjYm26Kd86UQ5HQzu9ksEtoUUw4RBuewodw/tGFmvipePvRsKeDA==}
+    peerDependencies:
+      react: ^16.5.1 || ^17.0.0 || ^18.0.0 || ^19.0.0
 
   magic-string@0.30.21:
     resolution: {integrity: sha512-vd2F4YUyEXKGcLHoq+TEyCjxueSeHnFxyyjNp80yg0XV4vUhnDer/lvvlqM/arB5bXQN5K2/3oinyCRyx8T2CQ==}
@@ -2156,6 +2173,11 @@ packages:
   queue-microtask@1.2.3:
     resolution: {integrity: sha512-NuaNSa6flKT5JaSYQzJok04JzTL1CA6aGhv5rfLW3PgqA+M2ChpZQnAC8h8i4ZFkBS8X5RqkDBHA7r4hej3K9A==}
 
+  react-canvas-draw@1.2.1:
+    resolution: {integrity: sha512-mCHE+Q91a26gUhyraHONedmbCI7dF/4BKdOxba7s4538QNfFWv/NfzLXWZrmjAQ4tO1vTvO+axX5YGIFjGc6uw==}
+    peerDependencies:
+      react: 16.x || 17.x
+
   react-dom@19.2.0:
     resolution: {integrity: sha512-UlbRu4cAiGaIewkPyiRGJk0imDN2T3JjieT6spoL2UeSf5od4n5LB/mQ4ejmxhCFT1tYe8IvaFulzynWovsEFQ==}
     peerDependencies:
@@ -2175,6 +2197,9 @@ packages:
   regexp.prototype.flags@1.5.4:
     resolution: {integrity: sha512-dYqgNSZbDwkaJ2ceRd9ojCGjBq+mOm9LmtXnAnEGyHhN/5R7iDW2TRw3h+o/jCFxus3P2LfWIIiwowAjANm7IA==}
     engines: {node: '>= 0.4'}
+
+  resize-observer-polyfill@1.5.1:
+    resolution: {integrity: sha512-LwZrotdHOo12nQuZlHEmtuXdqGoOD0OhaxopaNFxWzInpEgaLWoVuAMbTzixuosCx2nEG58ngzW3vxdWoxIgdg==}
 
   resolve-from@4.0.0:
     resolution: {integrity: sha512-pb/MYmXstAkysRFx8piNI1tGFNQIFA3vkE3Gq4EuA1dF6gHp/+vgZqsCGJapvy8N3Q+4o7FwvquPJcnZ7RYy4g==}
@@ -3330,6 +3355,8 @@ snapshots:
 
   caniuse-lite@1.0.30001751: {}
 
+  catenary-curve@1.0.1: {}
+
   chalk@4.1.2:
     dependencies:
       ansi-styles: 4.3.0
@@ -4138,6 +4165,8 @@ snapshots:
     dependencies:
       language-subtag-registry: 0.3.23
 
+  lazy-brush@1.0.1: {}
+
   levn@0.4.1:
     dependencies:
       prelude-ls: 1.2.1
@@ -4201,6 +4230,10 @@ snapshots:
   loose-envify@1.4.0:
     dependencies:
       js-tokens: 4.0.0
+
+  lucide-react@0.548.0(react@19.2.0):
+    dependencies:
+      react: 19.2.0
 
   magic-string@0.30.21:
     dependencies:
@@ -4371,6 +4404,14 @@ snapshots:
 
   queue-microtask@1.2.3: {}
 
+  react-canvas-draw@1.2.1(react@19.2.0):
+    dependencies:
+      catenary-curve: 1.0.1
+      lazy-brush: 1.0.1
+      prop-types: 15.8.1
+      react: 19.2.0
+      resize-observer-polyfill: 1.5.1
+
   react-dom@19.2.0(react@19.2.0):
     dependencies:
       react: 19.2.0
@@ -4399,6 +4440,8 @@ snapshots:
       get-proto: 1.0.1
       gopd: 1.2.0
       set-function-name: 2.0.2
+
+  resize-observer-polyfill@1.5.1: {}
 
   resolve-from@4.0.0: {}
 
