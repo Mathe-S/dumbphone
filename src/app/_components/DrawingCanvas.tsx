@@ -65,9 +65,21 @@ export function DrawingCanvas({
     new Set(),
   );
   const [imageHistory, setImageHistory] = useState<
-    Array<{ url: string; caption: string; isOriginal?: boolean }>
+    Array<{
+      url: string;
+      caption: string;
+      isOriginal?: boolean;
+      selectedSuggestions?: string[];
+    }>
   >([]);
   const [currentHistoryIndex, setCurrentHistoryIndex] = useState(0);
+  const [expandedSuggestions, setExpandedSuggestions] = useState<Set<number>>(
+    new Set(),
+  );
+  const capturedSuggestionsRef = useRef<string[]>([]);
+  
+  console.log("🚀 ~ DrawingCanvas ~ expandedSuggestions:", expandedSuggestions);
+  console.log("🖼️ ~ DrawingCanvas ~ imageHistory:", imageHistory);
 
   const generateCaption = api.caption.generateFromBase64.useMutation({
     onSuccess: (data) => {
@@ -84,21 +96,37 @@ export function DrawingCanvas({
   const generateImage = api.caption.generateImageFromCaption.useMutation({
     onSuccess: (data) => {
       console.log("Image generated successfully:", data.imageUrl);
-      
+
       // Ensure we have a string URL
-      const imageUrl = typeof data.imageUrl === 'string' 
-        ? data.imageUrl 
-        : String(data.imageUrl);
-      
+      const imageUrl =
+        typeof data.imageUrl === "string"
+          ? data.imageUrl
+          : String(data.imageUrl);
+
       setGeneratedImageUrl(imageUrl);
-      
-      // Add to history
-      setImageHistory((prev) => [
-        ...prev,
-        { url: imageUrl, caption: caption ?? "" },
-      ]);
+
+      // Use the captured suggestions from the ref
+      const selectedSuggestionTexts = capturedSuggestionsRef.current;
+
+      console.log("📝 All suggestions:", suggestions);
+      console.log("✅ Selected suggestion IDs:", Array.from(selectedSuggestions));
+      console.log("💡 Captured suggestion texts from ref:", selectedSuggestionTexts);
+
+      // Add to history with selected suggestions
+      setImageHistory((prev) => {
+        const newHistory = [
+          ...prev,
+          {
+            url: imageUrl,
+            caption: caption ?? "",
+            selectedSuggestions: selectedSuggestionTexts,
+          },
+        ];
+        console.log("📚 Updated image history:", newHistory);
+        return newHistory;
+      });
       setCurrentHistoryIndex((prev) => prev + 1);
-      
+
       toast.success("Image generated successfully!");
     },
     onError: (error) => {
@@ -326,7 +354,14 @@ export function DrawingCanvas({
 
     // Add original drawing to history if this is the first generation
     if (imageHistory.length === 0) {
-      setImageHistory([{ url: dataUrl, caption: "Original Drawing", isOriginal: true }]);
+      setImageHistory([
+        {
+          url: dataUrl,
+          caption: "Original Drawing",
+          isOriginal: true,
+          selectedSuggestions: [],
+        },
+      ]);
       setCurrentHistoryIndex(0);
     }
 
@@ -336,20 +371,30 @@ export function DrawingCanvas({
 
   const handleGenerateImage = () => {
     if (!caption) return;
-    
+
+    // Capture selected suggestion texts BEFORE clearing and store in ref
+    const selectedSuggestionTexts = suggestions
+      .filter((s) => selectedSuggestions.has(s.id))
+      .map((s) => s.suggestion);
+
+    // Store in ref so it's available in the mutation's onSuccess
+    capturedSuggestionsRef.current = selectedSuggestionTexts;
+
+    console.log("🎯 Capturing suggestions before generation:", {
+      selectedSuggestions: Array.from(selectedSuggestions),
+      selectedSuggestionTexts,
+      allSuggestions: suggestions,
+    });
+
     // Include only selected suggestions in the prompt
     let enhancedCaption = caption;
-    if (selectedSuggestions.size > 0) {
-      const selectedTexts = suggestions
-        .filter((s) => selectedSuggestions.has(s.id))
-        .map((s) => s.suggestion)
-        .join(", ");
-      enhancedCaption = `${caption}. Incorporate these creative ideas: ${selectedTexts}`;
+    if (selectedSuggestionTexts.length > 0) {
+      enhancedCaption = `${caption}. Incorporate these creative ideas: ${selectedSuggestionTexts.join(", ")}`;
     }
-    
+
     // Generate image with enhanced caption
     generateImage.mutate({ caption: enhancedCaption });
-    
+
     // Clear suggestions and selections after starting generation
     if (suggestions.length > 0) {
       clearSuggestions.mutate({ drawingId });
@@ -395,14 +440,17 @@ export function DrawingCanvas({
   const navigateHistory = (direction: "prev" | "next") => {
     if (direction === "prev" && currentHistoryIndex > 0) {
       setCurrentHistoryIndex(currentHistoryIndex - 1);
-    } else if (direction === "next" && currentHistoryIndex < imageHistory.length - 1) {
+    } else if (
+      direction === "next" &&
+      currentHistoryIndex < imageHistory.length - 1
+    ) {
       setCurrentHistoryIndex(currentHistoryIndex + 1);
     }
   };
 
   const handleRegenerateCaption = () => {
     if (!generatedImageUrl) return;
-    
+
     // Clear current caption and generate new one from the image
     setCaption(null);
     generateCaption.mutate({ imageBase64: generatedImageUrl });
@@ -612,37 +660,95 @@ export function DrawingCanvas({
             </button>
 
             <div className="flex flex-1 items-center gap-3 overflow-x-auto">
-              {imageHistory.map((item, index) => (
-                <button
-                  key={index}
-                  onClick={() => setCurrentHistoryIndex(index)}
-                  className={`group relative shrink-0 transition ${
-                    index === currentHistoryIndex
-                      ? "ring-2 ring-blue-500 ring-offset-2"
-                      : "opacity-60 hover:opacity-100"
-                  }`}
-                  title={item.caption}
-                >
-                  <div className="relative h-16 w-16 overflow-hidden rounded-lg border-2 border-white bg-white shadow-md">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={item.url}
-                      alt={item.caption}
-                      className="h-full w-full object-cover"
-                    />
-                    {item.isOriginal && (
-                      <div className="absolute inset-0 flex items-center justify-center bg-blue-900/20">
-                        <span className="text-xs font-bold text-white drop-shadow">
-                          ✏️
-                        </span>
+              {imageHistory.map((item, index) => {
+                console.log(`🔍 Item ${index}:`, {
+                  hasSelectedSuggestions: !!item.selectedSuggestions,
+                  selectedSuggestionsLength: item.selectedSuggestions?.length,
+                  selectedSuggestions: item.selectedSuggestions,
+                  isOriginal: item.isOriginal,
+                });
+                return (
+                  <div key={index} className="relative shrink-0">
+                    <div className="flex flex-col items-center gap-1">
+                      {/* Expandable suggestions label on top */}
+                      {item.selectedSuggestions &&
+                        item.selectedSuggestions.length > 0 && (
+                        <div className="w-full">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setExpandedSuggestions((prev) => {
+                                const newSet = new Set(prev);
+                                if (newSet.has(index)) {
+                                  newSet.delete(index);
+                                } else {
+                                  newSet.add(index);
+                                }
+                                return newSet;
+                              });
+                            }}
+                            className="flex w-full items-center justify-center gap-1 rounded-t-lg bg-linear-to-r from-cyan-600 to-blue-600 px-2 py-1 text-xs font-medium text-white shadow-sm hover:from-cyan-700 hover:to-blue-700"
+                          >
+                            <Sparkles className="h-3 w-3" />
+                            <span>
+                              {item.selectedSuggestions.length} idea
+                              {item.selectedSuggestions.length > 1 ? "s" : ""}
+                            </span>
+                          </button>
+                          {expandedSuggestions.has(index) && (
+                            <div className="absolute top-full left-0 z-50 mt-1 w-64 rounded-lg border border-cyan-400/30 bg-blue-900 p-3 text-xs text-white shadow-xl">
+                              <p className="mb-2 font-semibold text-cyan-300">
+                                Used suggestions:
+                              </p>
+                              <ul className="space-y-1.5">
+                                {item.selectedSuggestions.map((sug, i) => (
+                                  <li
+                                    key={i}
+                                    className="leading-relaxed text-blue-100"
+                                  >
+                                    • {sug}
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                    <button
+                      onClick={() => setCurrentHistoryIndex(index)}
+                      className={`relative shrink-0 transition ${
+                        index === currentHistoryIndex
+                          ? "ring-2 ring-blue-500 ring-offset-2"
+                          : "opacity-60 hover:opacity-100"
+                      } ${item.selectedSuggestions && item.selectedSuggestions.length > 0 ? "rounded-b-lg" : "rounded-lg"}`}
+                      title={item.caption}
+                    >
+                      <div
+                        className={`relative h-16 w-16 overflow-hidden border-2 border-white bg-white shadow-md ${item.selectedSuggestions && item.selectedSuggestions.length > 0 ? "rounded-b-lg" : "rounded-lg"}`}
+                      >
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={item.url}
+                          alt={item.caption}
+                          className="h-full w-full object-cover"
+                        />
+                        {item.isOriginal && (
+                          <div className="absolute inset-0 flex items-center justify-center bg-blue-900/20">
+                            <span className="text-xs font-bold text-white drop-shadow">
+                              ✏️
+                            </span>
+                          </div>
+                        )}
                       </div>
-                    )}
+                      <div className="absolute -right-1 -bottom-1 flex h-5 w-5 items-center justify-center rounded-full bg-blue-500 text-xs font-bold text-white shadow">
+                        {index + 1}
+                      </div>
+                    </button>
                   </div>
-                  <div className="absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-blue-500 text-xs font-bold text-white shadow">
-                    {index + 1}
-                  </div>
-                </button>
-              ))}
+                </div>
+                );
+              })}
             </div>
 
             <button
@@ -660,6 +766,35 @@ export function DrawingCanvas({
           </div>
         </div>
       )}
+
+      {/* Suggestions Panel for Current Image */}
+      {imageHistory.length > 0 &&
+        imageHistory[currentHistoryIndex]?.selectedSuggestions &&
+        imageHistory[currentHistoryIndex].selectedSuggestions.length > 0 && (
+          <div className="border-b bg-linear-to-r from-cyan-50 to-blue-50 px-4 py-3">
+            <div className="mx-auto max-w-4xl">
+              <div className="mb-2 flex items-center gap-2">
+                <Sparkles className="h-4 w-4 text-cyan-600" />
+                <h3 className="text-sm font-semibold text-cyan-900">
+                  Suggestions Used in Step {currentHistoryIndex + 1}
+                </h3>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {imageHistory[currentHistoryIndex].selectedSuggestions.map(
+                  (sug, i) => (
+                    <div
+                      key={i}
+                      className="inline-flex items-center gap-2 rounded-full bg-linear-to-r from-cyan-500 to-blue-500 px-3 py-1.5 text-xs font-medium text-white shadow-sm"
+                    >
+                      <span>✨</span>
+                      <span>{sug}</span>
+                    </div>
+                  ),
+                )}
+              </div>
+            </div>
+          </div>
+        )}
 
       {/* Canvas */}
       <div className="relative flex-1 overflow-hidden bg-gray-100">
@@ -688,16 +823,6 @@ export function DrawingCanvas({
               >
                 <X className="h-5 w-5" />
               </button>
-
-              {/* Header */}
-              <div className="mb-6 text-center">
-                <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-blue-400/30 bg-blue-500/10 px-4 py-2">
-                  <Sparkles className="h-4 w-4 text-blue-400" />
-                  <span className="text-sm font-medium text-blue-200">
-                    AI Generated Results
-                  </span>
-                </div>
-              </div>
 
               {/* Content Grid */}
               <div className="grid gap-6 lg:grid-cols-2">
@@ -728,7 +853,8 @@ export function DrawingCanvas({
                         <div className="mt-4 rounded-lg border border-cyan-400/20 bg-cyan-900/20 p-4">
                           <h4 className="mb-2 flex items-center gap-2 text-sm font-semibold text-cyan-300">
                             <Sparkles className="h-4 w-4" />
-                            Visitor Suggestions ({selectedSuggestions.size}/{suggestions.length} selected)
+                            Visitor Suggestions ({selectedSuggestions.size}/
+                            {suggestions.length} selected)
                           </h4>
                           <div className="max-h-32 space-y-2 overflow-y-auto">
                             {suggestions.map((s) => (
@@ -742,7 +868,9 @@ export function DrawingCanvas({
                                   onChange={() => toggleSuggestion(s.id)}
                                   className="mt-0.5 h-4 w-4 cursor-pointer rounded border-cyan-400/30 bg-cyan-900/50 text-cyan-500 focus:ring-2 focus:ring-cyan-500 focus:ring-offset-0"
                                 />
-                                <p className="flex-1 text-xs text-cyan-100">{s.suggestion}</p>
+                                <p className="flex-1 text-xs text-cyan-100">
+                                  {s.suggestion}
+                                </p>
                               </label>
                             ))}
                           </div>
