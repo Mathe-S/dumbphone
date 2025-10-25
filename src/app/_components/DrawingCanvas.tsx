@@ -14,6 +14,8 @@ import {
   X,
   QrCode,
   Send,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { api } from "@/trpc/react";
 import { QRCodeModal } from "./QRCodeModal";
@@ -62,6 +64,10 @@ export function DrawingCanvas({
   const [selectedSuggestions, setSelectedSuggestions] = useState<Set<number>>(
     new Set(),
   );
+  const [imageHistory, setImageHistory] = useState<
+    Array<{ url: string; caption: string; isOriginal?: boolean }>
+  >([]);
+  const [currentHistoryIndex, setCurrentHistoryIndex] = useState(0);
 
   const generateCaption = api.caption.generateFromBase64.useMutation({
     onSuccess: (data) => {
@@ -78,7 +84,21 @@ export function DrawingCanvas({
   const generateImage = api.caption.generateImageFromCaption.useMutation({
     onSuccess: (data) => {
       console.log("Image generated successfully:", data.imageUrl);
-      setGeneratedImageUrl(data.imageUrl);
+      
+      // Ensure we have a string URL
+      const imageUrl = typeof data.imageUrl === 'string' 
+        ? data.imageUrl 
+        : String(data.imageUrl);
+      
+      setGeneratedImageUrl(imageUrl);
+      
+      // Add to history
+      setImageHistory((prev) => [
+        ...prev,
+        { url: imageUrl, caption: caption ?? "" },
+      ]);
+      setCurrentHistoryIndex((prev) => prev + 1);
+      
       toast.success("Image generated successfully!");
     },
     onError: (error) => {
@@ -101,7 +121,7 @@ export function DrawingCanvas({
   const { data: suggestions = [] } = api.suggestion.getByDrawingId.useQuery(
     { drawingId },
     {
-      enabled: isOwner,
+      enabled: isOwner && showResults && !!caption,
       refetchInterval: 3000, // Poll every 3 seconds for real-time updates
     },
   );
@@ -304,6 +324,12 @@ export function DrawingCanvas({
     // Get canvas data as base64
     const dataUrl = canvas.toDataURL("image/png");
 
+    // Add original drawing to history if this is the first generation
+    if (imageHistory.length === 0) {
+      setImageHistory([{ url: dataUrl, caption: "Original Drawing", isOriginal: true }]);
+      setCurrentHistoryIndex(0);
+    }
+
     // Generate caption
     generateCaption.mutate({ imageBase64: dataUrl });
   };
@@ -364,6 +390,22 @@ export function DrawingCanvas({
       setQRCodeUrl(url);
       setShowQR(true);
     }
+  };
+
+  const navigateHistory = (direction: "prev" | "next") => {
+    if (direction === "prev" && currentHistoryIndex > 0) {
+      setCurrentHistoryIndex(currentHistoryIndex - 1);
+    } else if (direction === "next" && currentHistoryIndex < imageHistory.length - 1) {
+      setCurrentHistoryIndex(currentHistoryIndex + 1);
+    }
+  };
+
+  const handleRegenerateCaption = () => {
+    if (!generatedImageUrl) return;
+    
+    // Clear current caption and generate new one from the image
+    setCaption(null);
+    generateCaption.mutate({ imageBase64: generatedImageUrl });
   };
 
   return (
@@ -556,6 +598,69 @@ export function DrawingCanvas({
         </div>
       )}
 
+      {/* Image History Carousel */}
+      {imageHistory.length > 0 && (
+        <div className="border-b bg-linear-to-r from-blue-50 to-cyan-50 px-4 py-3">
+          <div className="mx-auto flex max-w-4xl items-center gap-3">
+            <button
+              onClick={() => navigateHistory("prev")}
+              disabled={currentHistoryIndex === 0}
+              className="rounded-lg bg-white p-2 shadow-sm transition hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-40"
+              title="Previous"
+            >
+              <ChevronLeft className="h-5 w-5 text-blue-600" />
+            </button>
+
+            <div className="flex flex-1 items-center gap-3 overflow-x-auto">
+              {imageHistory.map((item, index) => (
+                <button
+                  key={index}
+                  onClick={() => setCurrentHistoryIndex(index)}
+                  className={`group relative shrink-0 transition ${
+                    index === currentHistoryIndex
+                      ? "ring-2 ring-blue-500 ring-offset-2"
+                      : "opacity-60 hover:opacity-100"
+                  }`}
+                  title={item.caption}
+                >
+                  <div className="relative h-16 w-16 overflow-hidden rounded-lg border-2 border-white bg-white shadow-md">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={item.url}
+                      alt={item.caption}
+                      className="h-full w-full object-cover"
+                    />
+                    {item.isOriginal && (
+                      <div className="absolute inset-0 flex items-center justify-center bg-blue-900/20">
+                        <span className="text-xs font-bold text-white drop-shadow">
+                          ✏️
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-blue-500 text-xs font-bold text-white shadow">
+                    {index + 1}
+                  </div>
+                </button>
+              ))}
+            </div>
+
+            <button
+              onClick={() => navigateHistory("next")}
+              disabled={currentHistoryIndex === imageHistory.length - 1}
+              className="rounded-lg bg-white p-2 shadow-sm transition hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-40"
+              title="Next"
+            >
+              <ChevronRight className="h-5 w-5 text-blue-600" />
+            </button>
+
+            <div className="text-sm font-medium text-blue-900">
+              {currentHistoryIndex + 1} / {imageHistory.length}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Canvas */}
       <div className="relative flex-1 overflow-hidden bg-gray-100">
         <canvas
@@ -682,6 +787,16 @@ export function DrawingCanvas({
                         <Download className="h-4 w-4" />
                         Download Image
                       </a>
+                      <button
+                        onClick={handleRegenerateCaption}
+                        disabled={generateCaption.isPending}
+                        className="flex w-full items-center justify-center gap-2 rounded-lg bg-linear-to-r from-cyan-500 to-blue-500 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:from-cyan-600 hover:to-blue-600 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        <Sparkles className="h-4 w-4" />
+                        {generateCaption.isPending
+                          ? "Analyzing..."
+                          : "Continue Telephone Game →"}
+                      </button>
                     </div>
                   ) : generateImage.isPending ? (
                     <div className="flex flex-col items-center justify-center py-12">
