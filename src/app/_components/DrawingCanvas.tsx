@@ -10,6 +10,8 @@ import {
   Trash2,
   Palette,
   Sparkles,
+  Image as ImageIcon,
+  X,
 } from "lucide-react";
 import { api } from "@/trpc/react";
 
@@ -35,14 +37,30 @@ export function DrawingCanvas() {
   const [isEraser, setIsEraser] = useState(false);
   const [showColorPicker, setShowColorPicker] = useState(false);
   const [caption, setCaption] = useState<string | null>(null);
+  const [generatedImageUrl, setGeneratedImageUrl] = useState<string | null>(
+    null,
+  );
+  const [showResults, setShowResults] = useState(false);
 
   const generateCaption = api.caption.generateFromBase64.useMutation({
     onSuccess: (data) => {
       setCaption(data.caption);
+      setShowResults(true);
     },
     onError: (error) => {
       console.error("Caption generation failed:", error);
       alert("Failed to generate caption. Please try again.");
+    },
+  });
+
+  const generateImage = api.caption.generateImageFromCaption.useMutation({
+    onSuccess: (data) => {
+      console.log("Image generated successfully:", data.imageUrl);
+      setGeneratedImageUrl(data.imageUrl);
+    },
+    onError: (error) => {
+      console.error("Image generation failed:", error);
+      alert("Failed to generate image. Please try again.");
     },
   });
 
@@ -234,11 +252,27 @@ export function DrawingCanvas() {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
+    // Reset previous results
+    setCaption(null);
+    setGeneratedImageUrl(null);
+    setShowResults(false);
+
     // Get canvas data as base64
     const dataUrl = canvas.toDataURL("image/png");
 
     // Generate caption
     generateCaption.mutate({ imageBase64: dataUrl });
+  };
+
+  const handleGenerateImage = () => {
+    if (!caption) return;
+    generateImage.mutate({ caption });
+  };
+
+  const handleCloseResults = () => {
+    setShowResults(false);
+    setCaption(null);
+    setGeneratedImageUrl(null);
   };
 
   return (
@@ -355,15 +389,17 @@ export function DrawingCanvas() {
           </button>
         </div>
 
-        {/* Caption Generation */}
+        {/* AI Generation */}
         <button
           onClick={handleGenerateCaption}
           disabled={generateCaption.isPending || paths.length === 0}
-          className="ml-auto flex items-center gap-2 rounded-lg border border-purple-400/50 bg-gradient-to-r from-purple-500 to-pink-500 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:from-purple-600 hover:to-pink-600 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:from-purple-500 disabled:hover:to-pink-500"
-          title="Generate Caption with AI"
+          className="ml-auto flex items-center gap-2 rounded-lg border border-blue-400/50 bg-linear-to-r from-blue-500 to-cyan-500 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:from-blue-600 hover:to-cyan-600 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:from-blue-500 disabled:hover:to-cyan-500"
+          title="Generate Caption & Image with AI"
         >
           <Sparkles className="h-4 w-4" />
-          {generateCaption.isPending ? "Generating..." : "Generate Caption"}
+          {generateCaption.isPending
+            ? "Analyzing..."
+            : "Generate with AI"}
         </button>
 
         {/* Export Controls */}
@@ -402,24 +438,103 @@ export function DrawingCanvas() {
           style={{ width: "100%", height: "100%" }}
         />
 
-        {/* Caption Display */}
-        {caption && (
-          <div className="absolute bottom-4 left-1/2 max-w-2xl -translate-x-1/2 transform rounded-lg border border-purple-400/50 bg-gradient-to-r from-purple-500/95 to-pink-500/95 px-6 py-4 shadow-lg backdrop-blur-sm">
-            <div className="flex items-start gap-3">
-              <Sparkles className="mt-0.5 h-5 w-5 flex-shrink-0 text-white" />
-              <div className="flex-1">
-                <p className="text-sm font-medium text-white/90">AI Caption</p>
-                <p className="mt-1 text-base font-semibold text-white">
-                  {caption}
-                </p>
-              </div>
+        {/* AI Results Panel */}
+        {showResults && (
+          <div className="absolute inset-0 z-10 flex items-center justify-center bg-blue-950/80 p-4 backdrop-blur-sm">
+            <div className="relative w-full max-w-4xl rounded-2xl border border-blue-400/30 bg-linear-to-br from-blue-950 via-blue-900 to-blue-800 p-8 shadow-2xl">
+              {/* Close Button */}
               <button
-                onClick={() => setCaption(null)}
-                className="text-white/80 transition hover:text-white"
+                onClick={handleCloseResults}
+                className="absolute right-4 top-4 rounded-lg p-2 text-blue-300 transition hover:bg-blue-800/50 hover:text-white"
                 title="Close"
               >
-                ✕
+                <X className="h-5 w-5" />
               </button>
+
+              {/* Header */}
+              <div className="mb-6 text-center">
+                <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-blue-400/30 bg-blue-500/10 px-4 py-2">
+                  <Sparkles className="h-4 w-4 text-blue-400" />
+                  <span className="text-sm font-medium text-blue-200">
+                    AI Generated Results
+                  </span>
+                </div>
+              </div>
+
+              {/* Content Grid */}
+              <div className="grid gap-6 lg:grid-cols-2">
+                {/* Caption Section */}
+                <div className="rounded-xl border border-blue-400/20 bg-blue-900/40 p-6">
+                  <div className="mb-3 flex items-center gap-2">
+                    <Sparkles className="h-5 w-5 text-blue-400" />
+                    <h3 className="text-lg font-semibold text-white">
+                      Caption
+                    </h3>
+                  </div>
+                  {caption ? (
+                    <>
+                      <p className="mb-4 text-base text-blue-100">{caption}</p>
+                      <button
+                        onClick={handleGenerateImage}
+                        disabled={generateImage.isPending}
+                        className="flex w-full items-center justify-center gap-2 rounded-lg bg-linear-to-r from-blue-500 to-cyan-500 px-4 py-3 text-sm font-medium text-white shadow-sm transition hover:from-blue-600 hover:to-cyan-600 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        <ImageIcon className="h-4 w-4" />
+                        {generateImage.isPending
+                          ? "Generating Image..."
+                          : "Generate Image from Caption"}
+                      </button>
+                    </>
+                  ) : (
+                    <div className="flex items-center justify-center py-8">
+                      <div className="h-6 w-6 animate-spin rounded-full border-2 border-blue-400 border-t-transparent" />
+                    </div>
+                  )}
+                </div>
+
+                {/* Generated Image Section */}
+                <div className="rounded-xl border border-blue-400/20 bg-blue-900/40 p-6">
+                  <div className="mb-3 flex items-center gap-2">
+                    <ImageIcon className="h-5 w-5 text-cyan-400" />
+                    <h3 className="text-lg font-semibold text-white">
+                      Generated Image
+                    </h3>
+                  </div>
+                  {generatedImageUrl ? (
+                    <div className="space-y-3">
+                      <div className="overflow-hidden rounded-lg border border-blue-400/20">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={generatedImageUrl}
+                          alt="AI Generated"
+                          className="h-auto w-full"
+                        />
+                      </div>
+                      <a
+                        href={generatedImageUrl}
+                        download="ai-generated.png"
+                        className="flex w-full items-center justify-center gap-2 rounded-lg border border-blue-400/50 bg-blue-800/50 px-4 py-2 text-sm font-medium text-blue-100 transition hover:bg-blue-700/50"
+                      >
+                        <Download className="h-4 w-4" />
+                        Download Image
+                      </a>
+                    </div>
+                  ) : generateImage.isPending ? (
+                    <div className="flex flex-col items-center justify-center py-12">
+                      <div className="mb-3 h-8 w-8 animate-spin rounded-full border-3 border-cyan-400 border-t-transparent" />
+                      <p className="text-sm text-blue-300">
+                        Creating your image...
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-center rounded-lg border-2 border-dashed border-blue-400/30 py-12">
+                      <p className="text-sm text-blue-400">
+                        Generate an image from the caption
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
         )}

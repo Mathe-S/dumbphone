@@ -44,4 +44,43 @@ export const captionRouter = createTRPCRouter({
         );
       }
     }),
+
+  generateImageFromCaption: publicProcedure
+    .input(
+      z.object({
+        caption: z.string(),
+      }),
+    )
+    .mutation(async ({ input }) => {
+      try {
+        const output = (await replicate.run("bytedance/seedream-4", {
+          input: {
+            size: "1K",
+            width: 1024,
+            height: 1024,
+            prompt: input.caption,
+            max_images: 1,
+            image_input: [],
+            aspect_ratio: "4:3",
+            enhance_prompt: true,
+            sequential_image_generation: "disabled",
+          },
+        })) as Array<{ url: () => string }>;
+
+        const imageUrl = output[0]?.url();
+
+        if (!imageUrl) {
+          throw new Error("No image URL returned from Seedream");
+        }
+
+        return {
+          imageUrl,
+        };
+      } catch (error) {
+        console.error("Image generation error:", error);
+        throw new Error(
+          `Failed to generate image: ${error instanceof Error ? error.message : "Unknown error"}`,
+        );
+      }
+    }),
 });
